@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { AccessibleToggle } from '../AccessibleToggle';
+import { AccessibleToggle } from './AccessibleToggle';
 
 describe('AccessibleToggle', () => {
   it('should render with label', () => {

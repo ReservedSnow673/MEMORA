@@ -3,7 +3,7 @@ import {
   checkPhotoPermission,
   requestPhotoPermission,
   canAccessPhotos,
-} from '../permissions';
+} from './permissions';
 
 jest.mock('expo-media-library');
 

@@ -1,12 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import AccessibleProgress from '../AccessibleProgress';
-
-jest.mock('react-native', () => {
-  const RN = jest.requireActual('react-native');
-  RN.AccessibilityInfo.announceForAccessibility = jest.fn();
-  return RN;
-});
+import AccessibleProgress from './AccessibleProgress';
 
 describe('AccessibleProgress', () => {
   it('should render progress bar', () => {

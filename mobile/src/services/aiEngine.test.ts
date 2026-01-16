@@ -1,4 +1,4 @@
-import AiCaptionEngine, { TFLiteEngine, GeminiEngine, OpenAIEngine } from '../aiEngine';
+import AiCaptionEngine, { TFLiteEngine, GeminiEngine, OpenAIEngine } from './aiEngine';
 
 describe('AiCaptionEngine', () => {
   describe('initialization', () => {

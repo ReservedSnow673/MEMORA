@@ -3,8 +3,8 @@ import {
   detectCaptionQuality,
   getCaptionInfo,
   parseMetadataFromBytes,
-} from '../metadataReader';
-import { FullMetadata } from '../metadataReader';
+} from './metadataReader';
+import { FullMetadata } from './metadataReader';
 
 describe('MetadataReader', () => {
   describe('isGenericCaption', () => {

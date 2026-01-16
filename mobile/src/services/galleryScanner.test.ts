@@ -6,7 +6,7 @@ import {
   getAssetsSince,
   getAssetById,
   isSupportedFormat,
-} from '../galleryScanner';
+} from './galleryScanner';
 
 jest.mock('expo-media-library');
 

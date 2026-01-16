@@ -1,4 +1,4 @@
-import SyncService, { getSyncService, resetSyncService } from '../syncService';
+import SyncService, { getSyncService, resetSyncService } from './syncService';
 
 jest.mock('@react-native-community/netinfo', () => ({
   addEventListener: jest.fn().mockReturnValue(() => {}),

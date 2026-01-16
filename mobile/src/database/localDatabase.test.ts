@@ -1,4 +1,4 @@
-import { LocalDatabase, resetDatabase } from '../localDatabase';
+import { LocalDatabase, resetDatabase } from './localDatabase';
 
 jest.mock('expo-sqlite', () => ({
   openDatabaseAsync: jest.fn().mockResolvedValue({

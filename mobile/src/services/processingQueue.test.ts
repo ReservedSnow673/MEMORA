@@ -1,5 +1,5 @@
-import ProcessingQueue from '../processingQueue';
-import AiCaptionEngine from '../aiEngine';
+import ProcessingQueue from './processingQueue';
+import AiCaptionEngine from './aiEngine';
 
 jest.mock('../metadataWriter', () => ({
   writeCaption: jest.fn().mockResolvedValue({

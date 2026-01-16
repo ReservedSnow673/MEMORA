@@ -7,7 +7,7 @@ import {
   combineAccessibilityLabels,
   createImageAccessibilityLabel,
   accessibilityRole,
-} from '../accessibility';
+} from './accessibility';
 
 describe('accessibility utilities', () => {
   describe('formatAccessibleTime', () => {

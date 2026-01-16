@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import AccessibleImageGallery, { GalleryImage } from '../AccessibleImageGallery';
+import AccessibleImageGallery, { GalleryImage } from './AccessibleImageGallery';
 
 const mockImages: GalleryImage[] = [
   {

@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
-import { useApp, usePreferences, useProcessingQueue, useErrors, useOnboarding } from '../hooks';
+import { useApp, usePreferences, useProcessingQueue, useErrors, useOnboarding } from './hooks';
 
 jest.mock('../App', () => ({
   getApp: jest.fn().mockReturnValue({

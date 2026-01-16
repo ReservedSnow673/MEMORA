@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { AccessibleRadioGroup } from '../AccessibleRadioGroup';
+import { AccessibleRadioGroup } from './AccessibleRadioGroup';
 
 const TEST_OPTIONS = [
   { value: 'option1', label: 'Option 1' },

@@ -1,4 +1,4 @@
-import App, { getApp, resetApp } from '../App';
+import App, { getApp, resetApp } from './App';
 
 jest.mock('../../database', () => ({
   initializeDatabase: jest.fn().mockResolvedValue({}),

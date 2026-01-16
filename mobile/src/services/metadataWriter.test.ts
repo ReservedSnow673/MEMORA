@@ -1,4 +1,4 @@
-import { validateCaption, sanitizeCaption } from '../metadataWriter';
+import { validateCaption, sanitizeCaption } from './metadataWriter';
 
 jest.mock('expo-file-system', () => ({
   readAsStringAsync: jest.fn(),

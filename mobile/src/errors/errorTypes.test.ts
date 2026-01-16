@@ -6,7 +6,7 @@ import {
   handleError,
   ErrorCode,
   MemoraError,
-} from '../errorTypes';
+} from './errorTypes';
 
 describe('errorTypes', () => {
   describe('createError', () => {

@@ -1,8 +1,8 @@
 import ErrorReportingService, {
   getErrorReportingService,
   resetErrorReportingService,
-} from '../errorReporting';
-import { createError } from '../errorTypes';
+} from './errorReporting';
+import { createError } from './errorTypes';
 
 describe('ErrorReportingService', () => {
   beforeEach(() => {

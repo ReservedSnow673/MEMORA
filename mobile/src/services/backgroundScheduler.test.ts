@@ -3,8 +3,8 @@ import BackgroundScheduler, {
   resetScheduler,
   BACKGROUND_TASK_NAME,
   BACKGROUND_FETCH_INTERVAL,
-} from '../backgroundScheduler';
-import AiCaptionEngine from '../aiEngine';
+} from './backgroundScheduler';
+import AiCaptionEngine from './aiEngine';
 
 jest.mock('expo-task-manager', () => ({
   defineTask: jest.fn(),

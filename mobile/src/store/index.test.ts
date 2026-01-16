@@ -3,7 +3,7 @@ import {
   useProcessingStore,
   useConstraintStore,
   usePermissionStore,
-} from '../index';
+} from './index';
 
 describe('PreferencesStore', () => {
   beforeEach(() => {

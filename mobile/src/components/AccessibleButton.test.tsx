@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { AccessibleButton } from '../AccessibleButton';
+import { AccessibleButton } from './AccessibleButton';
 
 describe('AccessibleButton', () => {
   it('should render with label', () => {

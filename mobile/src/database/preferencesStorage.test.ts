@@ -2,7 +2,7 @@ import PreferencesStorage, {
   getPreferencesStorage,
   resetPreferencesStorage,
   DEFAULT_PREFERENCES,
-} from '../preferencesStorage';
+} from './preferencesStorage';
 
 let mockStorage: Record<string, string> = {};
 
