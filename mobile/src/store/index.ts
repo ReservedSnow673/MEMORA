@@ -9,12 +9,27 @@ interface PreferencesState {
 }
 
 const DEFAULT_PREFERENCES: Preferences = {
-  backgroundEnabled: true,
   aiMode: 'on-device',
+  autoProcess: true,
   autoProcessNew: true,
+  processNewPhotosOnly: true,
   processExisting: false,
+  backgroundEnabled: true,
+  backgroundProcessing: true,
   wifiOnly: true,
+  wifiOnlyProcessing: true,
   chargingOnly: false,
+  batteryThreshold: 20,
+  overwriteExisting: false,
+  metadataFormat: 'xmp',
+  metadataFormats: ['xmp', 'exif', 'iptc'],
+  highContrastMode: false,
+  largeTextMode: false,
+  reduceAnimations: false,
+  hapticFeedback: true,
+  voiceAnnouncements: true,
+  autoSync: false,
+  syncOnWifiOnly: true,
 };
 
 export const usePreferencesStore = create<PreferencesState>((set) => ({
@@ -35,6 +50,7 @@ interface ProcessingState {
   currentStatus: 'idle' | 'scanning' | 'processing' | 'paused';
   currentImageId: string | null;
   updateStats: (stats: Partial<ProcessingStats>) => void;
+  updateProcessingStats: (stats: Partial<ProcessingStats>) => void;
   setStatus: (status: 'idle' | 'scanning' | 'processing' | 'paused') => void;
   setCurrentImage: (imageId: string | null) => void;
   incrementStat: (stat: keyof ProcessingStats, amount?: number) => void;
@@ -48,6 +64,7 @@ export const useProcessingStore = create<ProcessingState>((set) => ({
     pending: 0,
     processing: 0,
     failed: 0,
+    lastSyncAt: undefined,
   },
   currentStatus: 'idle',
   currentImageId: null,
@@ -55,15 +72,19 @@ export const useProcessingStore = create<ProcessingState>((set) => ({
     set((state) => ({
       stats: { ...state.stats, ...newStats },
     })),
+  updateProcessingStats: (newStats) =>
+    set((state) => ({
+      stats: { ...state.stats, ...newStats },
+    })),
   setStatus: (status) => set({ currentStatus: status }),
   setCurrentImage: (imageId) => set({ currentImageId: imageId }),
   incrementStat: (stat, amount = 1) =>
     set((state) => ({
-      stats: { ...state.stats, [stat]: state.stats[stat] + amount },
+      stats: { ...state.stats, [stat]: (state.stats[stat] ?? 0) + amount },
     })),
   decrementStat: (stat, amount = 1) =>
     set((state) => ({
-      stats: { ...state.stats, [stat]: Math.max(0, state.stats[stat] - amount) },
+      stats: { ...state.stats, [stat]: Math.max(0, (state.stats[stat] as number ?? 0) - amount) },
     })),
 }));
 

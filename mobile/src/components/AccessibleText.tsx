@@ -1,7 +1,7 @@
 import React from 'react';
-import { Text, TextProps, StyleSheet } from 'react-native';
+import { Text, TextProps, StyleSheet, AccessibilityRole } from 'react-native';
 
-export interface AccessibleTextProps extends TextProps {
+export interface AccessibleTextProps extends Omit<TextProps, 'role'> {
   children: React.ReactNode;
   role?: 'header' | 'text' | 'alert' | 'summary';
   level?: 1 | 2 | 3 | 4;
@@ -66,3 +66,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+
+export default AccessibleText;

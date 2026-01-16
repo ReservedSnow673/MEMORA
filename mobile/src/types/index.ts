@@ -1,14 +1,42 @@
-export type AiMode = 'on-device' | 'gemini' | 'gpt-5.2';
+export type AiMode = 'on-device' | 'gemini' | 'gpt-5.2' | 'cloud' | 'hybrid';
+
+export type MetadataFormat = 'xmp' | 'exif' | 'iptc';
 
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
+export type PermissionStatus = 'undetermined' | 'granted' | 'denied' | 'limited';
+
 export interface Preferences {
-  backgroundEnabled: boolean;
+  // AI Settings
   aiMode: AiMode;
+  
+  // Processing Settings  
+  autoProcess: boolean;
   autoProcessNew: boolean;
+  processNewPhotosOnly: boolean;
   processExisting: boolean;
+  backgroundEnabled: boolean;
+  backgroundProcessing: boolean;
   wifiOnly: boolean;
+  wifiOnlyProcessing: boolean;
   chargingOnly: boolean;
+  batteryThreshold: number;
+  overwriteExisting: boolean;
+  
+  // Metadata Settings
+  metadataFormat: MetadataFormat;
+  metadataFormats: MetadataFormat[];
+  
+  // Accessibility Settings
+  highContrastMode: boolean;
+  largeTextMode: boolean;
+  reduceAnimations: boolean;
+  hapticFeedback: boolean;
+  voiceAnnouncements: boolean;
+  
+  // Sync Settings
+  autoSync: boolean;
+  syncOnWifiOnly: boolean;
 }
 
 export interface ProcessingQueueItem {
@@ -30,6 +58,14 @@ export interface ProcessingStats {
   pending: number;
   processing: number;
   failed: number;
+  lastSyncAt?: number;
+}
+
+export interface ProcessingState {
+  stats: ProcessingStats;
+  isProcessing: boolean;
+  currentItem?: ProcessingQueueItem;
+  updateProcessingStats: (stats: Partial<ProcessingStats>) => void;
 }
 
 export interface ConstraintState {

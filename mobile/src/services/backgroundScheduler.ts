@@ -152,7 +152,7 @@ class BackgroundScheduler {
       this.updateLastSyncDate();
 
       useProcessingStore.getState().updateProcessingStats({
-        totalProcessed: processedCount,
+        completed: useProcessingStore.getState().stats.completed + processedCount,
       });
 
       return processedCount > 0;
@@ -205,14 +205,14 @@ class BackgroundScheduler {
     return midnight;
   }
 
-  private getLastSyncDate(): Date {
+  private getLastSyncDate(): number {
     const stats = useProcessingStore.getState().stats;
-    return stats.lastSyncAt ?? new Date(0);
+    return stats.lastSyncAt ?? 0;
   }
 
   private updateLastSyncDate(): void {
     useProcessingStore.getState().updateProcessingStats({
-      lastSyncAt: new Date(),
+      lastSyncAt: Date.now(),
     });
   }
 

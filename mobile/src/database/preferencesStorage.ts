@@ -9,12 +9,18 @@ const DEVICE_ID_KEY = 'memora_device_id';
 export const DEFAULT_PREFERENCES: Preferences = {
   aiMode: 'on-device',
   autoProcess: true,
+  autoProcessNew: true,
   processNewPhotosOnly: true,
+  processExisting: false,
+  backgroundEnabled: true,
   backgroundProcessing: true,
+  wifiOnly: true,
   wifiOnlyProcessing: true,
+  chargingOnly: false,
   batteryThreshold: 20,
-  metadataFormats: ['xmp', 'exif', 'iptc'],
   overwriteExisting: false,
+  metadataFormat: 'xmp',
+  metadataFormats: ['xmp', 'exif', 'iptc'],
   highContrastMode: false,
   largeTextMode: false,
   reduceAnimations: false,
@@ -37,11 +43,11 @@ class PreferencesStorage {
       } else {
         this.cache = { ...DEFAULT_PREFERENCES };
       }
-      return this.cache;
+      return this.cache!;
     } catch (error) {
       console.error('Failed to load preferences:', error);
       this.cache = { ...DEFAULT_PREFERENCES };
-      return this.cache;
+      return this.cache!;
     }
   }
 

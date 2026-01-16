@@ -94,11 +94,12 @@ class App {
     granted: boolean;
     status: AppState['permissionStatus'];
   }> {
-    const result = await checkPhotoPermission();
+    const status = await checkPhotoPermission();
+    const granted = status === 'granted' || status === 'limited';
 
     return {
-      granted: result.granted,
-      status: result.status as AppState['permissionStatus'],
+      granted,
+      status: status as AppState['permissionStatus'],
     };
   }
 

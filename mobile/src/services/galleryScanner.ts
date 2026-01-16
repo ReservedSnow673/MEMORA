@@ -7,6 +7,12 @@ export interface ScanProgress {
   isComplete: boolean;
 }
 
+export interface ScanResult {
+  assets: ImageAsset[];
+  totalScanned: number;
+  hasMore: boolean;
+}
+
 export interface ScanOptions {
   batchSize?: number;
   mediaType?: MediaLibrary.MediaTypeValue[];
