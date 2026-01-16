@@ -1,6 +1,6 @@
 import App, { getApp, resetApp } from './App';
 
-jest.mock('../../database', () => ({
+jest.mock('../database', () => ({
   initializeDatabase: jest.fn().mockResolvedValue({}),
   getDatabase: jest.fn().mockReturnValue({
     close: jest.fn().mockResolvedValue(undefined),
@@ -14,35 +14,32 @@ jest.mock('../../database', () => ({
   }),
 }));
 
-jest.mock('../../services/aiEngine', () => ({
+jest.mock('../services/aiEngine', () => ({
   AiCaptionEngine: jest.fn().mockImplementation(() => ({
     initialize: jest.fn().mockResolvedValue(undefined),
     dispose: jest.fn(),
   })),
 }));
 
-jest.mock('../../services/backgroundScheduler', () => ({
+jest.mock('../services/backgroundScheduler', () => ({
   getScheduler: jest.fn().mockReturnValue({
     initialize: jest.fn().mockResolvedValue(undefined),
     dispose: jest.fn().mockResolvedValue(undefined),
   }),
 }));
 
-jest.mock('../../services/syncService', () => ({
+jest.mock('../services/syncService', () => ({
   getSyncService: jest.fn().mockReturnValue({
     initialize: jest.fn().mockResolvedValue(undefined),
     dispose: jest.fn(),
   }),
 }));
 
-jest.mock('../../services/permissions', () => ({
-  checkPhotoPermission: jest.fn().mockResolvedValue({
-    granted: true,
-    status: 'granted',
-  }),
+jest.mock('../services/permissions', () => ({
+  checkPhotoPermission: jest.fn().mockResolvedValue('granted'),
 }));
 
-jest.mock('../../errors', () => ({
+jest.mock('../errors', () => ({
   getErrorReportingService: jest.fn().mockReturnValue({
     report: jest.fn(),
   }),

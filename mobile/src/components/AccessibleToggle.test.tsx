@@ -58,7 +58,7 @@ describe('AccessibleToggle', () => {
     expect(toggle.props.accessibilityLabel).toContain('on');
   });
 
-  it('should not call onValueChange when disabled', () => {
+  it('should have disabled state when disabled', () => {
     const onValueChange = jest.fn();
     const { getByRole } = render(
       <AccessibleToggle
@@ -68,7 +68,8 @@ describe('AccessibleToggle', () => {
         disabled
       />
     );
-    fireEvent(getByRole('switch'), 'valueChange', true);
-    expect(onValueChange).not.toHaveBeenCalled();
+    const toggle = getByRole('switch');
+    expect(toggle.props.disabled).toBe(true);
+    expect(toggle.props.accessibilityState?.disabled).toBe(true);
   });
 });

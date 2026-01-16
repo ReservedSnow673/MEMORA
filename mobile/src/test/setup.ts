@@ -1,4 +1,16 @@
 // Mock native modules before any imports
+jest.mock('react-native/Libraries/Utilities/NativeDeviceInfo', () => ({
+  default: {
+    getConstants: () => ({
+      Dimensions: {
+        window: { width: 375, height: 812, scale: 2, fontScale: 1 },
+        screen: { width: 375, height: 812, scale: 2, fontScale: 1 },
+      },
+    }),
+  },
+  __esModule: true,
+}));
+
 jest.mock('react-native/Libraries/Settings/NativeSettingsManager', () => ({
   default: {
     getConstants: () => ({}),
@@ -7,26 +19,39 @@ jest.mock('react-native/Libraries/Settings/NativeSettingsManager', () => ({
 }));
 
 jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
-  const turboModuleProxy = new Proxy({}, {
-    get: () => undefined,
-  });
-  return {
-    getEnforcing: (name: string) => {
-      // Return mock objects for commonly used modules
-      if (name === 'SettingsManager') {
-        return { getConstants: () => ({}) };
-      }
-      if (name === 'PlatformConstants') {
-        return {
-          getConstants: () => ({
-            isTesting: true,
-            reactNativeVersion: { major: 0, minor: 73, patch: 0 },
-          }),
-        };
-      }
-      return {};
+  const mockModules: Record<string, unknown> = {
+    SettingsManager: { getConstants: () => ({}) },
+    DeviceInfo: {
+      getConstants: () => ({
+        Dimensions: {
+          window: { width: 375, height: 812, scale: 2, fontScale: 1 },
+          screen: { width: 375, height: 812, scale: 2, fontScale: 1 },
+        },
+      }),
     },
-    get: () => turboModuleProxy,
+    PlatformConstants: {
+      getConstants: () => ({
+        isTesting: true,
+        reactNativeVersion: { major: 0, minor: 73, patch: 0 },
+      }),
+    },
+    SourceCode: {
+      getConstants: () => ({ scriptURL: 'http://localhost:8081/index.bundle' }),
+    },
+    StatusBarManager: {
+      getConstants: () => ({ HEIGHT: 44 }),
+    },
+    Appearance: {
+      getConstants: () => ({ colorScheme: 'light' }),
+    },
+    I18nManager: {
+      getConstants: () => ({ isRTL: false, doLeftAndRightSwapInRTL: false }),
+    },
+  };
+
+  return {
+    getEnforcing: (name: string) => mockModules[name] || {},
+    get: (name: string) => mockModules[name] || null,
   };
 });
 
@@ -108,6 +133,55 @@ jest.mock('@react-navigation/native', () => {
       params: {},
     }),
     NavigationContainer: ({ children }: { children: React.ReactNode }) => children,
+  };
+});
+
+// Mock NativeEventEmitter
+jest.mock('react-native/Libraries/EventEmitter/NativeEventEmitter', () => {
+  return class MockNativeEventEmitter {
+    addListener = jest.fn(() => ({ remove: jest.fn() }));
+    removeAllListeners = jest.fn();
+    emit = jest.fn();
+    listenerCount = jest.fn(() => 0);
+  };
+});
+
+// Mock AccessibilityInfo
+jest.mock('react-native/Libraries/Components/AccessibilityInfo/AccessibilityInfo', () => ({
+  isScreenReaderEnabled: jest.fn(() => Promise.resolve(false)),
+  isBoldTextEnabled: jest.fn(() => Promise.resolve(false)),
+  isGrayscaleEnabled: jest.fn(() => Promise.resolve(false)),
+  isInvertColorsEnabled: jest.fn(() => Promise.resolve(false)),
+  isReduceMotionEnabled: jest.fn(() => Promise.resolve(false)),
+  isReduceTransparencyEnabled: jest.fn(() => Promise.resolve(false)),
+  announceForAccessibility: jest.fn(() => Promise.resolve()),
+  announceForAccessibilityWithOptions: jest.fn(() => Promise.resolve()),
+  addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  setAccessibilityFocus: jest.fn(),
+}));
+
+// Mock react-native AccessibilityInfo export
+jest.mock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+  return {
+    ...RN,
+    AccessibilityInfo: {
+      isScreenReaderEnabled: jest.fn(() => Promise.resolve(false)),
+      isBoldTextEnabled: jest.fn(() => Promise.resolve(false)),
+      isGrayscaleEnabled: jest.fn(() => Promise.resolve(false)),
+      isInvertColorsEnabled: jest.fn(() => Promise.resolve(false)),
+      isReduceMotionEnabled: jest.fn(() => Promise.resolve(false)),
+      isReduceTransparencyEnabled: jest.fn(() => Promise.resolve(false)),
+      announceForAccessibility: jest.fn(() => Promise.resolve()),
+      announceForAccessibilityWithOptions: jest.fn(() => Promise.resolve()),
+      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+      setAccessibilityFocus: jest.fn(),
+    },
+    NativeModules: {
+      ...RN.NativeModules,
+      SettingsManager: { getConstants: () => ({}) },
+      StatusBarManager: { getConstants: () => ({ HEIGHT: 44 }) },
+    },
   };
 });
 

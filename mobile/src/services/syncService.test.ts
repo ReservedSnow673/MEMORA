@@ -8,7 +8,7 @@ jest.mock('@react-native-community/netinfo', () => ({
   }),
 }));
 
-jest.mock('../../store', () => ({
+jest.mock('../store', () => ({
   usePreferencesStore: {
     getState: () => ({
       preferences: {

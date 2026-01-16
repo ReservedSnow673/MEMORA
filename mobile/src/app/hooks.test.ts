@@ -1,7 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useApp, usePreferences, useProcessingQueue, useErrors, useOnboarding } from './hooks';
 
-jest.mock('../App', () => ({
+jest.mock('./App', () => ({
   getApp: jest.fn().mockReturnValue({
     getState: jest.fn().mockReturnValue({
       isInitialized: false,
@@ -16,7 +16,7 @@ jest.mock('../App', () => ({
   }),
 }));
 
-jest.mock('../../database', () => ({
+jest.mock('../database', () => ({
   getPreferencesStorage: jest.fn().mockReturnValue({
     load: jest.fn().mockResolvedValue({
       aiMode: 'on-device',
@@ -32,7 +32,7 @@ jest.mock('../../database', () => ({
   }),
 }));
 
-jest.mock('../../services/backgroundScheduler', () => ({
+jest.mock('../services/backgroundScheduler', () => ({
   getScheduler: jest.fn().mockReturnValue({
     getState: jest.fn().mockReturnValue({ isRunning: false }),
     start: jest.fn().mockResolvedValue(undefined),
@@ -40,7 +40,7 @@ jest.mock('../../services/backgroundScheduler', () => ({
   }),
 }));
 
-jest.mock('../../errors', () => ({
+jest.mock('../errors', () => ({
   getErrorReportingService: jest.fn().mockReturnValue({
     subscribe: jest.fn().mockReturnValue(() => {}),
   }),

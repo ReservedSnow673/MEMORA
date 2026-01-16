@@ -25,15 +25,15 @@ jest.mock('react-native', () => ({
   },
 }));
 
-jest.mock('../galleryScanner', () => ({
+jest.mock('./galleryScanner', () => ({
   getAssetsSince: jest.fn().mockResolvedValue([]),
 }));
 
-jest.mock('../metadataReader', () => ({
+jest.mock('./metadataReader', () => ({
   checkImageHasCaption: jest.fn().mockResolvedValue({ hasCaption: false }),
 }));
 
-jest.mock('../../store', () => ({
+jest.mock('../store', () => ({
   usePreferencesStore: {
     getState: () => ({
       preferences: {
@@ -45,7 +45,7 @@ jest.mock('../../store', () => ({
   useProcessingStore: {
     getState: () => ({
       stats: {
-        lastSyncAt: new Date(),
+        lastSyncAt: Date.now(),
       },
       updateProcessingStats: jest.fn(),
     }),

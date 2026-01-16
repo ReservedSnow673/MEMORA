@@ -1,7 +1,7 @@
 import ProcessingQueue from './processingQueue';
 import AiCaptionEngine from './aiEngine';
 
-jest.mock('../metadataWriter', () => ({
+jest.mock('./metadataWriter', () => ({
   writeCaption: jest.fn().mockResolvedValue({
     success: true,
     uri: '/test/output.jpg',
@@ -26,6 +26,7 @@ describe('ProcessingQueue', () => {
 
   describe('addItem', () => {
     it('should add item to queue', () => {
+      queue.pause(); // Pause to prevent auto-processing
       const item = queue.addItem('file:///test.jpg', 'asset-1');
 
       expect(item.id).toBeDefined();
@@ -35,6 +36,7 @@ describe('ProcessingQueue', () => {
     });
 
     it('should add item with priority', () => {
+      queue.pause(); // Pause to prevent auto-processing
       const item = queue.addItem('file:///test.jpg', 'asset-1', 10);
 
       expect(item.priority).toBe(10);

@@ -50,7 +50,7 @@ describe('AccessibleRadioGroup', () => {
   });
 
   it('should have radiogroup accessibility role on container', () => {
-    const { getByRole } = render(
+    const { getByLabelText } = render(
       <AccessibleRadioGroup
         label="Test Group"
         options={TEST_OPTIONS}
@@ -58,7 +58,8 @@ describe('AccessibleRadioGroup', () => {
         onValueChange={() => {}}
       />
     );
-    expect(getByRole('radiogroup')).toBeTruthy();
+    const container = getByLabelText('Test Group');
+    expect(container.props.accessibilityRole).toBe('radiogroup');
   });
 
   it('should have radio accessibility role on options', () => {
