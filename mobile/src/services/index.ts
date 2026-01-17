@@ -64,3 +64,21 @@ export type {
   QueueEventType,
   QueueEvent,
 } from './processingQueue';
+
+export {
+  BackgroundScheduler,
+  getScheduler,
+  resetScheduler,
+  BACKGROUND_TASK_NAME,
+  BACKGROUND_FETCH_INTERVAL,
+} from './backgroundScheduler';
+
+export type { SchedulerConfig, SchedulerState } from './backgroundScheduler';
+
+export {
+  SyncService,
+  getSyncService,
+  resetSyncService,
+} from './syncService';
+
+export type { SyncItem, SyncStats, SyncConfig } from './syncService';
