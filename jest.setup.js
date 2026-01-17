@@ -83,6 +83,38 @@ jest.mock('expo-device', () => ({
   osVersion: '13',
 }));
 
+jest.mock('expo-battery', () => ({
+  getBatteryLevelAsync: jest.fn(() => Promise.resolve(0.8)),
+  getBatteryStateAsync: jest.fn(() => Promise.resolve(1)), // UNPLUGGED
+  BatteryState: {
+    UNKNOWN: 0,
+    UNPLUGGED: 1,
+    CHARGING: 2,
+    FULL: 3,
+  },
+}), { virtual: true });
+
+jest.mock('expo-network', () => ({
+  getNetworkStateAsync: jest.fn(() =>
+    Promise.resolve({
+      isConnected: true,
+      isInternetReachable: true,
+      type: 'WIFI',
+    })
+  ),
+  NetworkStateType: {
+    NONE: 'NONE',
+    UNKNOWN: 'UNKNOWN',
+    CELLULAR: 'CELLULAR',
+    WIFI: 'WIFI',
+    BLUETOOTH: 'BLUETOOTH',
+    ETHERNET: 'ETHERNET',
+    WIMAX: 'WIMAX',
+    VPN: 'VPN',
+    OTHER: 'OTHER',
+  },
+}), { virtual: true });
+
 jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(() =>
     Promise.resolve({
