@@ -4,18 +4,25 @@ import settingsReducer, {
   setWifiOnly,
   setChargingOnly,
   setOpenAIApiKey,
+  setGeminiApiKey,
+  setAIProvider,
   setAutoProcessImages,
   setSaveToGooglePhotos,
+  setLowBatteryThreshold,
+  setDetailedCaptions,
 } from '../../src/store/settingsSlice';
 import { AppSettings } from '../../src/types';
 
 describe('settingsSlice', () => {
   const initialState: AppSettings = {
     backgroundFetchFrequency: 'daily',
-    wifiOnly: false,
+    wifiOnly: true,
     chargingOnly: false,
     autoProcessImages: true,
     saveToGooglePhotos: false,
+    aiProvider: 'gemini',
+    lowBatteryThreshold: 20,
+    detailedCaptions: false,
   };
 
   describe('initial state', () => {
@@ -122,6 +129,67 @@ describe('settingsSlice', () => {
       const state = { ...initialState, saveToGooglePhotos: true };
       const result = settingsReducer(state, setSaveToGooglePhotos(false));
       expect(result.saveToGooglePhotos).toBe(false);
+    });
+  });
+
+  describe('setGeminiApiKey', () => {
+    it('should set Gemini API key', () => {
+      const result = settingsReducer(initialState, setGeminiApiKey('AI-test-key'));
+      expect(result.geminiApiKey).toBe('AI-test-key');
+    });
+
+    it('should clear Gemini API key when empty string is provided', () => {
+      const state = { ...initialState, geminiApiKey: 'AI-test-key' };
+      const result = settingsReducer(state, setGeminiApiKey(''));
+      expect(result.geminiApiKey).toBe('');
+    });
+  });
+
+  describe('setAIProvider', () => {
+    it('should set provider to gemini', () => {
+      const state = { ...initialState, aiProvider: 'openai' as const };
+      const result = settingsReducer(state, setAIProvider('gemini'));
+      expect(result.aiProvider).toBe('gemini');
+    });
+
+    it('should set provider to openai', () => {
+      const result = settingsReducer(initialState, setAIProvider('openai'));
+      expect(result.aiProvider).toBe('openai');
+    });
+
+    it('should set provider to ondevice', () => {
+      const result = settingsReducer(initialState, setAIProvider('ondevice'));
+      expect(result.aiProvider).toBe('ondevice');
+    });
+  });
+
+  describe('setLowBatteryThreshold', () => {
+    it('should set threshold to valid value', () => {
+      const result = settingsReducer(initialState, setLowBatteryThreshold(30));
+      expect(result.lowBatteryThreshold).toBe(30);
+    });
+
+    it('should clamp threshold to 0 minimum', () => {
+      const result = settingsReducer(initialState, setLowBatteryThreshold(-10));
+      expect(result.lowBatteryThreshold).toBe(0);
+    });
+
+    it('should clamp threshold to 100 maximum', () => {
+      const result = settingsReducer(initialState, setLowBatteryThreshold(150));
+      expect(result.lowBatteryThreshold).toBe(100);
+    });
+  });
+
+  describe('setDetailedCaptions', () => {
+    it('should enable detailed captions', () => {
+      const result = settingsReducer(initialState, setDetailedCaptions(true));
+      expect(result.detailedCaptions).toBe(true);
+    });
+
+    it('should disable detailed captions', () => {
+      const state = { ...initialState, detailedCaptions: true };
+      const result = settingsReducer(state, setDetailedCaptions(false));
+      expect(result.detailedCaptions).toBe(false);
     });
   });
 });

@@ -20,17 +20,26 @@ import {
   setWifiOnly,
   setChargingOnly,
   setOpenAIApiKey,
+  setGeminiApiKey,
+  setAIProvider,
   setAutoProcessImages,
   setSaveToGooglePhotos,
+  setLowBatteryThreshold,
+  setDetailedCaptions,
 } from '../store/settingsSlice';
 import { createOpenAIService, hasValidApiKey, getCurrentApiKey } from '../services/openai';
+import { CaptioningService } from '../services/captioning';
 import { firebaseAuth } from '../services/firebase';
 import { useTheme, ThemeMode, ColorScheme } from '../contexts/ThemeContext';
+import { AIProvider } from '../types';
 
 export default function SettingsScreen() {
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [geminiKeyInput, setGeminiKeyInput] = useState('');
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [showGeminiKeyInput, setShowGeminiKeyInput] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
+  const [testingGemini, setTestingGemini] = useState(false);
   
   const dispatch = useDispatch();
   const navigation = useNavigation();
@@ -74,6 +83,36 @@ export default function SettingsScreen() {
       Alert.alert('Error', 'Failed to validate API key. Please check your internet connection.');
     } finally {
       setTestingConnection(false);
+    }
+  };
+
+  const handleGeminiKeyUpdate = async () => {
+    if (!geminiKeyInput.trim()) {
+      Alert.alert('Error', 'Please enter a valid API key');
+      return;
+    }
+
+    setTestingGemini(true);
+    
+    try {
+      const captioningService = new CaptioningService({
+        preferredProvider: 'gemini',
+        geminiApiKey: geminiKeyInput.trim(),
+      });
+      const isValid = await captioningService.testGeminiConnection();
+      
+      if (isValid) {
+        dispatch(setGeminiApiKey(geminiKeyInput.trim()));
+        setGeminiKeyInput('');
+        setShowGeminiKeyInput(false);
+        Alert.alert('Success', 'Gemini API key updated successfully!');
+      } else {
+        Alert.alert('Error', 'Invalid API key. Please check and try again.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to validate API key. Please check your internet connection.');
+    } finally {
+      setTestingGemini(false);
     }
   };
 
@@ -132,6 +171,51 @@ export default function SettingsScreen() {
             >
               <Text style={styles.saveButtonText}>
                 {testingConnection ? 'Testing...' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderGeminiKeyModal = () => (
+    <Modal visible={showGeminiKeyInput} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Gemini API Key</Text>
+          <Text style={styles.modalSubtitle}>
+            Enter your Google Gemini API key. Get one free at ai.google.dev
+          </Text>
+          
+          <TextInput
+            style={styles.apiKeyInput}
+            value={geminiKeyInput}
+            onChangeText={setGeminiKeyInput}
+            placeholder="AI..."
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          
+          <View style={styles.modalButtons}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => {
+                setShowGeminiKeyInput(false);
+                setGeminiKeyInput('');
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.saveButton]}
+              onPress={handleGeminiKeyUpdate}
+              disabled={testingGemini}
+            >
+              <Text style={styles.saveButtonText}>
+                {testingGemini ? 'Testing...' : 'Save'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -225,16 +309,86 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* OpenAI Configuration */}
+      {/* AI Configuration */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>OpenAI Configuration</Text>
+        <Text style={styles.sectionTitle}>
+          <Ionicons name="sparkles" size={20} color={theme.colors.primary} /> AI Configuration
+        </Text>
         
+        {/* AI Provider Selection */}
+        <View style={styles.settingItem}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>AI Provider</Text>
+            <Text style={styles.settingDescription}>
+              {settings.aiProvider === 'gemini' ? 'Google Gemini (Recommended)' :
+               settings.aiProvider === 'openai' ? 'OpenAI GPT-4o' :
+               'On-Device (Offline)'}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.frequencyOptions}>
+          {(['gemini', 'openai', 'ondevice'] as AIProvider[]).map((provider) => (
+            <TouchableOpacity
+              key={provider}
+              style={[
+                styles.frequencyOption,
+                settings.aiProvider === provider && styles.frequencyOptionActive,
+              ]}
+              onPress={() => dispatch(setAIProvider(provider))}
+            >
+              <Text style={[
+                styles.frequencyOptionText,
+                settings.aiProvider === provider && styles.frequencyOptionTextActive,
+              ]}>
+                {provider === 'gemini' ? (
+                  <><Ionicons name="flash" size={16} /> Gemini</>
+                ) : provider === 'openai' ? (
+                  <><Ionicons name="cloud" size={16} /> OpenAI</>
+                ) : (
+                  <><Ionicons name="phone-portrait" size={16} /> Device</>
+                )}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Gemini API Key */}
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={() => setShowGeminiKeyInput(true)}
+        >
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Gemini API Key</Text>
+            <Text style={styles.settingDescription}>
+              {settings.geminiApiKey 
+                ? 'Key configured' 
+                : 'Not configured (required for Gemini)'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+
+        {settings.geminiApiKey && (
+          <TouchableOpacity 
+            style={[styles.settingItem, { backgroundColor: theme.colors.error + '15' }]}
+            onPress={() => dispatch(setGeminiApiKey(''))}
+          >
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: theme.colors.error }]}>Clear Gemini Key</Text>
+              <Text style={styles.settingDescription}>Remove configured API key</Text>
+            </View>
+            <Ionicons name="trash" size={20} color={theme.colors.error} />
+          </TouchableOpacity>
+        )}
+
+        {/* OpenAI API Key */}
         <TouchableOpacity 
           style={styles.settingItem}
           onPress={() => setShowApiKeyInput(true)}
         >
           <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>API Key</Text>
+            <Text style={styles.settingLabel}>OpenAI API Key</Text>
             <Text style={styles.settingDescription}>
               {settings.openAIApiKey 
                 ? 'Custom key configured' 
@@ -254,7 +408,7 @@ export default function SettingsScreen() {
             }}
           >
             <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.colors.error }]}>Clear Custom Key</Text>
+              <Text style={[styles.settingLabel, { color: theme.colors.error }]}>Clear OpenAI Key</Text>
               <Text style={styles.settingDescription}>
                 Switch back to using the default API key
               </Text>
@@ -262,6 +416,22 @@ export default function SettingsScreen() {
             <Ionicons name="trash" size={20} color={theme.colors.error} />
           </TouchableOpacity>
         )}
+
+        {/* Detailed Captions Toggle */}
+        <View style={styles.settingItem}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Detailed Captions</Text>
+            <Text style={styles.settingDescription}>
+              Generate longer, more descriptive captions
+            </Text>
+          </View>
+          <Switch
+            value={settings.detailedCaptions}
+            onValueChange={(value) => dispatch(setDetailedCaptions(value))}
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+            thumbColor={settings.detailedCaptions ? theme.colors.onPrimary : theme.colors.surface}
+          />
+        </View>
 
         <View style={styles.settingItem}>
           <View style={styles.settingInfo}>
@@ -349,6 +519,37 @@ export default function SettingsScreen() {
             thumbColor={settings.chargingOnly ? theme.colors.onPrimary : theme.colors.surface}
           />
         </View>
+
+        <View style={styles.settingItem}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingLabel}>Low Battery Threshold</Text>
+            <Text style={styles.settingDescription}>
+              Pause processing below {settings.lowBatteryThreshold}% battery
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.frequencyOptions}>
+          {[10, 20, 30, 50].map((threshold) => (
+            <TouchableOpacity
+              key={threshold}
+              style={[
+                styles.frequencyOption,
+                settings.lowBatteryThreshold === threshold && styles.frequencyOptionActive,
+              ]}
+              onPress={() => dispatch(setLowBatteryThreshold(threshold))}
+            >
+              <Text
+                style={[
+                  styles.frequencyOptionText,
+                  settings.lowBatteryThreshold === threshold && styles.frequencyOptionTextActive,
+                ]}
+              >
+                {threshold}%
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       {/* Google Photos Integration */}
@@ -412,6 +613,7 @@ export default function SettingsScreen() {
       </View>
 
       {renderApiKeyModal()}
+      {renderGeminiKeyModal()}
     </ScrollView>
   );
 }

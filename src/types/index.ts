@@ -34,13 +34,19 @@ export interface User {
   isAnonymous: boolean;
 }
 
+export type AIProvider = 'openai' | 'gemini' | 'ondevice';
+
 export interface AppSettings {
   backgroundFetchFrequency: 'hourly' | 'daily' | 'weekly';
   wifiOnly: boolean;
   chargingOnly: boolean;
   openAIApiKey?: string;
+  geminiApiKey?: string;
+  aiProvider: AIProvider;
   autoProcessImages: boolean;
   saveToGooglePhotos: boolean;
+  lowBatteryThreshold: number; // 0-100 percentage
+  detailedCaptions: boolean;
 }
 
 export interface AppState {
