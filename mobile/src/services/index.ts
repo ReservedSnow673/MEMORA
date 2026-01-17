@@ -40,3 +40,27 @@ export {
 } from './metadataWriter';
 
 export type { MetadataFormat, WriteOptions, WriteResult } from './metadataWriter';
+
+export {
+  AiCaptionEngine,
+  TFLiteEngine,
+  GeminiEngine,
+  OpenAIEngine,
+} from './aiEngine';
+
+export type {
+  CaptionResult,
+  CaptionError,
+  AiEngineConfig,
+  InferenceEngine,
+} from './aiEngine';
+
+export { ProcessingQueue } from './processingQueue';
+
+export type {
+  QueueItem,
+  QueueStats,
+  QueueConfig,
+  QueueEventType,
+  QueueEvent,
+} from './processingQueue';
