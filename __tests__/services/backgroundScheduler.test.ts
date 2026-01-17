@@ -75,21 +75,22 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   setItem: jest.fn(),
 }));
 
-// Mock the services
+// Mock the services (GalleryAccessService and MetadataReaderService use static methods)
 jest.mock('../../src/services/galleryAccess', () => ({
-  GalleryAccessService: jest.fn().mockImplementation(() => ({
-    requestFullAccess: jest.fn().mockResolvedValue(true),
-    getNewImagesSince: jest.fn().mockResolvedValue([]),
-    markAsProcessed: jest.fn(),
-    clearProcessedIds: jest.fn(),
-  })),
+  GalleryAccessService: {
+    hasFullAccess: jest.fn().mockResolvedValue(true),
+    detectUnprocessedImages: jest.fn().mockResolvedValue({ unprocessedImages: [], totalUnprocessed: 0 }),
+    addProcessedImageId: jest.fn().mockResolvedValue(undefined),
+    clearProcessedImageIds: jest.fn().mockResolvedValue(undefined),
+    getProcessedImageIds: jest.fn().mockResolvedValue(new Set()),
+  },
 }));
 
 jest.mock('../../src/services/metadataReader', () => ({
-  MetadataReaderService: jest.fn().mockImplementation(() => ({
-    readMetadata: jest.fn().mockResolvedValue(null),
+  MetadataReaderService: {
+    readImageMetadata: jest.fn().mockResolvedValue(null),
     evaluateCaptionQuality: jest.fn().mockReturnValue({ score: 0, isGeneric: true }),
-  })),
+  },
 }));
 
 jest.mock('../../src/services/captioning', () => ({
@@ -396,17 +397,17 @@ describe('BackgroundScheduler', () => {
     });
 
     it('should process new images', async () => {
-      // Mock gallery to return images
+      // Mock gallery to return images (static methods)
       const { GalleryAccessService } = require('../../src/services/galleryAccess');
-      GalleryAccessService.mockImplementation(() => ({
-        requestFullAccess: jest.fn().mockResolvedValue(true),
-        getNewImagesSince: jest.fn().mockResolvedValue([
+      GalleryAccessService.hasFullAccess.mockResolvedValue(true);
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({
+        unprocessedImages: [
           { id: 'img-1', uri: 'file:///test1.jpg' },
           { id: 'img-2', uri: 'file:///test2.jpg' },
-        ]),
-        markAsProcessed: jest.fn(),
-        clearProcessedIds: jest.fn(),
-      }));
+        ],
+        totalUnprocessed: 2,
+      });
+      GalleryAccessService.addProcessedImageId.mockResolvedValue(undefined);
       
       const scheduler = new BackgroundScheduler({ delayBetweenImages: 0 });
       const result = await scheduler.runCaptioningPipeline();
@@ -416,23 +417,21 @@ describe('BackgroundScheduler', () => {
     });
 
     it('should skip images with existing good captions', async () => {
-      // Mock gallery and metadata reader
+      // Mock gallery and metadata reader (static methods)
       const { GalleryAccessService } = require('../../src/services/galleryAccess');
       const { MetadataReaderService } = require('../../src/services/metadataReader');
       
-      GalleryAccessService.mockImplementation(() => ({
-        requestFullAccess: jest.fn().mockResolvedValue(true),
-        getNewImagesSince: jest.fn().mockResolvedValue([
+      GalleryAccessService.hasFullAccess.mockResolvedValue(true);
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({
+        unprocessedImages: [
           { id: 'img-1', uri: 'file:///test1.jpg' },
-        ]),
-        markAsProcessed: jest.fn(),
-        clearProcessedIds: jest.fn(),
-      }));
+        ],
+        totalUnprocessed: 1,
+      });
+      GalleryAccessService.addProcessedImageId.mockResolvedValue(undefined);
       
-      MetadataReaderService.mockImplementation(() => ({
-        readMetadata: jest.fn().mockResolvedValue({ description: 'Existing caption' }),
-        evaluateCaptionQuality: jest.fn().mockReturnValue({ score: 80, isGeneric: false }),
-      }));
+      MetadataReaderService.readImageMetadata.mockResolvedValue({ description: 'Existing caption' });
+      MetadataReaderService.evaluateCaptionQuality.mockReturnValue({ score: 80, isGeneric: false });
       
       const scheduler = new BackgroundScheduler();
       const result = await scheduler.runCaptioningPipeline();
@@ -446,20 +445,18 @@ describe('BackgroundScheduler', () => {
       const { CaptioningService } = require('../../src/services/captioning');
       const { MetadataReaderService } = require('../../src/services/metadataReader');
       
-      GalleryAccessService.mockImplementation(() => ({
-        requestFullAccess: jest.fn().mockResolvedValue(true),
-        getNewImagesSince: jest.fn().mockResolvedValue([
+      GalleryAccessService.hasFullAccess.mockResolvedValue(true);
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({
+        unprocessedImages: [
           { id: 'img-1', uri: 'file:///test1.jpg' },
-        ]),
-        markAsProcessed: jest.fn(),
-        clearProcessedIds: jest.fn(),
-      }));
+        ],
+        totalUnprocessed: 1,
+      });
+      GalleryAccessService.addProcessedImageId.mockResolvedValue(undefined);
       
-      // Reset metadata reader to return no existing caption
-      MetadataReaderService.mockImplementation(() => ({
-        readMetadata: jest.fn().mockResolvedValue(null),
-        evaluateCaptionQuality: jest.fn().mockReturnValue({ score: 0, isGeneric: true }),
-      }));
+      // Reset metadata reader to return no existing caption (static methods)
+      MetadataReaderService.readImageMetadata.mockResolvedValue(null);
+      MetadataReaderService.evaluateCaptionQuality.mockReturnValue({ score: 0, isGeneric: true });
       
       CaptioningService.mockImplementation(() => ({
         generateCaption: jest.fn().mockRejectedValue(new Error('API error')),
@@ -482,22 +479,17 @@ describe('BackgroundScheduler', () => {
 
   describe('triggerImmediateRun', () => {
     it('should run pipeline immediately', async () => {
-      // Reset mocks to default successful state
+      // Reset mocks to default successful state (static methods)
       const { GalleryAccessService } = require('../../src/services/galleryAccess');
       const { CaptioningService } = require('../../src/services/captioning');
       const { MetadataReaderService } = require('../../src/services/metadataReader');
       
-      GalleryAccessService.mockImplementation(() => ({
-        requestFullAccess: jest.fn().mockResolvedValue(true),
-        getNewImagesSince: jest.fn().mockResolvedValue([]),
-        markAsProcessed: jest.fn(),
-        clearProcessedIds: jest.fn(),
-      }));
+      GalleryAccessService.hasFullAccess.mockResolvedValue(true);
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({ unprocessedImages: [], totalUnprocessed: 0 });
+      GalleryAccessService.addProcessedImageId.mockResolvedValue(undefined);
       
-      MetadataReaderService.mockImplementation(() => ({
-        readMetadata: jest.fn().mockResolvedValue(null),
-        evaluateCaptionQuality: jest.fn().mockReturnValue({ score: 0, isGeneric: true }),
-      }));
+      MetadataReaderService.readImageMetadata.mockResolvedValue(null);
+      MetadataReaderService.evaluateCaptionQuality.mockReturnValue({ score: 0, isGeneric: true });
       
       CaptioningService.mockImplementation(() => ({
         generateCaption: jest.fn().mockResolvedValue({
@@ -518,14 +510,12 @@ describe('BackgroundScheduler', () => {
   describe('getPendingCount', () => {
     it('should return count of pending images', async () => {
       const { GalleryAccessService } = require('../../src/services/galleryAccess');
-      GalleryAccessService.mockImplementation(() => ({
-        requestFullAccess: jest.fn().mockResolvedValue(true),
-        getNewImagesSince: jest.fn().mockResolvedValue([
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({
+        unprocessedImages: [
           { id: '1' }, { id: '2' }, { id: '3' },
-        ]),
-        markAsProcessed: jest.fn(),
-        clearProcessedIds: jest.fn(),
-      }));
+        ],
+        totalUnprocessed: 3,
+      });
       
       const scheduler = new BackgroundScheduler();
       const count = await scheduler.getPendingCount();
@@ -535,14 +525,14 @@ describe('BackgroundScheduler', () => {
   });
 
   describe('clearProcessedHistory', () => {
-    it('should reset state', () => {
+    it('should reset state', async () => {
       const scheduler = new BackgroundScheduler();
       
       // Set some state
       (scheduler as any).state.processedTotal = 100;
       (scheduler as any).state.lastRunTime = Date.now();
       
-      scheduler.clearProcessedHistory();
+      await scheduler.clearProcessedHistory();
       
       const state = scheduler.getState();
       expect(state.processedTotal).toBe(0);

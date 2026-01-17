@@ -90,9 +90,8 @@ export class BackgroundScheduler {
   private config: SchedulerConfig;
   private state: SchedulerState;
   
-  // Services
-  private galleryService: GalleryAccessService;
-  private metadataReader: MetadataReaderService;
+  // Services (CaptioningService and MetadataWriterService are instance-based)
+  // GalleryAccessService and MetadataReaderService use static methods
   private captioningService: CaptioningService | null = null;
   private metadataWriter: MetadataWriterService;
   
@@ -107,9 +106,8 @@ export class BackgroundScheduler {
       lastError: null,
     };
     
-    // Initialize services
-    this.galleryService = new GalleryAccessService();
-    this.metadataReader = new MetadataReaderService();
+    // Initialize services (only instance-based ones)
+    // GalleryAccessService and MetadataReaderService use static methods
     this.metadataWriter = new MetadataWriterService();
     
     // Set singleton
@@ -337,8 +335,8 @@ export class BackgroundScheduler {
         return result;
       }
 
-      // Check permissions
-      const hasPermission = await this.galleryService.requestFullAccess();
+      // Check permissions (GalleryAccessService uses static methods)
+      const hasPermission = await GalleryAccessService.hasFullAccess();
       if (!hasPermission) {
         result.errors.push('Gallery permission denied');
         this.state.lastError = 'Permission denied';
@@ -350,12 +348,11 @@ export class BackgroundScheduler {
         this.updateCaptioningService();
       }
 
-      // Get new images since last run
-      const lastCheck = this.state.lastRunTime || 0;
-      const newImages = await this.galleryService.getNewImagesSince(
-        lastCheck,
+      // Get new images since last run (use static detectUnprocessedImages)
+      const unprocessedResult = await GalleryAccessService.detectUnprocessedImages(
         this.config.maxImagesPerRun
       );
+      const newImages = unprocessedResult.unprocessedImages;
 
       if (newImages.length === 0) {
         this.state.lastRunResult = 'success';
@@ -367,17 +364,17 @@ export class BackgroundScheduler {
       // Process each image
       for (const image of newImages) {
         try {
-          // Check if already has good caption
-          const existingMetadata = await this.metadataReader.readMetadata(image.uri);
+          // Check if already has good caption (MetadataReaderService uses static methods)
+          const existingMetadata = await MetadataReaderService.readImageMetadata(image.uri);
           
           if (existingMetadata && existingMetadata.description) {
-            const quality = this.metadataReader.evaluateCaptionQuality(
+            const quality = MetadataReaderService.evaluateCaptionQuality(
               existingMetadata.description
             );
             
             if (quality.score >= 50 && !quality.isGeneric) {
               result.skippedCount++;
-              this.galleryService.markAsProcessed(image.id, true);
+              await GalleryAccessService.addProcessedImageId(image.id);
               continue;
             }
           }
@@ -398,7 +395,7 @@ export class BackgroundScheduler {
 
             if (writeResult.success) {
               result.processedCount++;
-              this.galleryService.markAsProcessed(image.id, true);
+              await GalleryAccessService.addProcessedImageId(image.id);
             } else {
               result.errorCount++;
               result.errors.push(`Write failed for ${image.id}: ${writeResult.error}`);
@@ -483,10 +480,9 @@ export class BackgroundScheduler {
    */
   async getPendingCount(): Promise<number> {
     try {
-      const lastCheck = this.state.lastRunTime || 0;
-      const pending = await this.galleryService.getNewImagesSince(lastCheck, 100);
-      this.state.pendingCount = pending.length;
-      return pending.length;
+      const unprocessedResult = await GalleryAccessService.detectUnprocessedImages(100);
+      this.state.pendingCount = unprocessedResult.unprocessedImages.length;
+      return unprocessedResult.unprocessedImages.length;
     } catch {
       return 0;
     }
@@ -495,8 +491,8 @@ export class BackgroundScheduler {
   /**
    * Clear processed history (for testing or reset)
    */
-  clearProcessedHistory(): void {
-    this.galleryService.clearProcessedIds();
+  async clearProcessedHistory(): Promise<void> {
+    await GalleryAccessService.clearProcessedImageIds();
     this.state.processedTotal = 0;
     this.state.lastRunTime = null;
     this.state.lastRunResult = null;
