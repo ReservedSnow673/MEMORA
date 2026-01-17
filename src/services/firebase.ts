@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { 
   initializeAuth,
-  getAuth,
+  getReactNativePersistence,
   GoogleAuthProvider, 
   signInWithCredential,
   signOut,
@@ -26,9 +26,10 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// For React Native, we'll just use getAuth() which should automatically handle persistence
-// The warning about AsyncStorage is mainly for older Firebase versions
-const auth = getAuth(app);
+// Initialize Auth with AsyncStorage persistence for React Native
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});
 
 WebBrowser.maybeCompleteAuthSession();
 
