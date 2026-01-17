@@ -1,16 +1,9 @@
 import * as FileSystem from 'expo-file-system';
+import { OPENAI_API_KEY, GEMINI_API_KEY } from '@env';
 
-// Try to import env variables (will be undefined if not set)
-let ENV_OPENAI_API_KEY: string | undefined;
-let ENV_GEMINI_API_KEY: string | undefined;
-try {
-  const env = require('@env');
-  ENV_OPENAI_API_KEY = env.OPENAI_API_KEY;
-  ENV_GEMINI_API_KEY = env.GEMINI_API_KEY;
-} catch {
-  ENV_OPENAI_API_KEY = undefined;
-  ENV_GEMINI_API_KEY = undefined;
-}
+// Environment variables from .env (undefined if not set)
+const ENV_OPENAI_API_KEY = OPENAI_API_KEY;
+const ENV_GEMINI_API_KEY = GEMINI_API_KEY;
 
 export type AIProvider = 'openai' | 'gemini' | 'ondevice';
 
@@ -152,7 +145,7 @@ export class CaptioningService {
         'Authorization': `Bearer ${this.config.openaiApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-5.2',
         messages: [
           {
             role: 'user',

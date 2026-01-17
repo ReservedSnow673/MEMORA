@@ -1,14 +1,9 @@
 import { OpenAIResponse } from '../types';
 import * as FileSystem from 'expo-file-system';
+import { OPENAI_API_KEY } from '@env';
 
-// Try to import env variables (will be undefined if not set)
-let ENV_OPENAI_API_KEY: string | undefined;
-try {
-  const env = require('@env');
-  ENV_OPENAI_API_KEY = env.OPENAI_API_KEY;
-} catch {
-  ENV_OPENAI_API_KEY = undefined;
-}
+// Environment variable from .env (undefined if not set)
+const ENV_OPENAI_API_KEY = OPENAI_API_KEY;
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
@@ -41,7 +36,7 @@ export class OpenAIService {
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o', // Using the more affordable mini model
+          model: 'gpt-5.2',
           messages: [
             {
               role: 'user',

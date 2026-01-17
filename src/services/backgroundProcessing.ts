@@ -8,7 +8,7 @@ import {
   updateImageStatus,
   updateImageCaption 
 } from '../store/imagesSlice';
-import { createOpenAIService } from './openai';
+import { CaptioningService } from './captioning';
 
 const BACKGROUND_PROCESSING_TASK = 'background-processing-task';
 
@@ -17,7 +17,7 @@ TaskManager.defineTask(BACKGROUND_PROCESSING_TASK, async () => {
   try {
     const state = store.getState();
     const { processingQueue, items: images } = state.images;
-    const { openAIApiKey } = state.settings;
+    const { openAIApiKey, geminiApiKey, aiProvider } = state.settings;
 
     if (processingQueue.length === 0) {
       return BackgroundFetch.BackgroundFetchResult.NoData;
@@ -35,13 +35,18 @@ TaskManager.defineTask(BACKGROUND_PROCESSING_TASK, async () => {
     try {
       store.dispatch(updateImageStatus({ id: imageId, status: 'processing' }));
       
-      const openAIService = createOpenAIService(openAIApiKey);
-      const caption = await openAIService.generateImageCaption(image.uri);
+      // Use CaptioningService which handles env fallback
+      const captioningService = new CaptioningService({
+        preferredProvider: aiProvider || 'gemini',
+        openaiApiKey: openAIApiKey,
+        geminiApiKey: geminiApiKey,
+      });
+      const result = await captioningService.generateCaption(image.uri);
       
-      if (caption && !caption.includes('unavailable')) {
-        store.dispatch(updateImageCaption({ id: imageId, caption }));
+      if (result.caption && !result.caption.includes('unavailable')) {
+        store.dispatch(updateImageCaption({ id: imageId, caption: result.caption }));
       } else {
-        store.dispatch(updateImageStatus({ id: imageId, status: 'error', error: 'Failed to process image' }));
+        store.dispatch(updateImageStatus({ id: imageId, status: 'error', error: result.error || 'Failed to process image' }));
       }
       
       store.dispatch(removeFromProcessingQueue(imageId));
@@ -103,13 +108,20 @@ export class BackgroundProcessingService {
     try {
       const state = store.getState();
       const { processingQueue, items: images } = state.images;
-      const { openAIApiKey } = state.settings;
+      const { openAIApiKey, geminiApiKey, aiProvider } = state.settings;
 
       if (processingQueue.length === 0) {
         return;
       }
 
       store.dispatch(setIsProcessing(true));
+
+      // Create CaptioningService which handles env fallback
+      const captioningService = new CaptioningService({
+        preferredProvider: aiProvider || 'gemini',
+        openaiApiKey: openAIApiKey,
+        geminiApiKey: geminiApiKey,
+      });
 
       // Process images one by one
       for (const imageId of processingQueue) {
@@ -123,13 +135,12 @@ export class BackgroundProcessingService {
         try {
           store.dispatch(updateImageStatus({ id: imageId, status: 'processing' }));
           
-          const openAIService = createOpenAIService(openAIApiKey);
-          const caption = await openAIService.generateImageCaption(image.uri);
+          const result = await captioningService.generateCaption(image.uri);
           
-          if (caption && !caption.includes('unavailable')) {
-            store.dispatch(updateImageCaption({ id: imageId, caption }));
+          if (result.caption && !result.caption.includes('unavailable')) {
+            store.dispatch(updateImageCaption({ id: imageId, caption: result.caption }));
           } else {
-            store.dispatch(updateImageStatus({ id: imageId, status: 'error', error: 'Failed to process image' }));
+            store.dispatch(updateImageStatus({ id: imageId, status: 'error', error: result.error || 'Failed to process image' }));
           }
           
           store.dispatch(removeFromProcessingQueue(imageId));
