@@ -370,7 +370,7 @@ describe('Integration: Provider Fallback Chain', () => {
     expect(result.caption).toBeTruthy();
   });
 
-  it('should use on-device when all APIs fail', async () => {
+  it('should return error when all cloud APIs fail', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
     
     const captioningService = new CaptioningService({
@@ -381,9 +381,12 @@ describe('Integration: Provider Fallback Chain', () => {
     
     const result = await captioningService.generateCaption('file:///test.jpg', false);
     
-    // Should fallback to on-device
-    expect(result.provider).toBe('ondevice');
-    expect(result.caption).toContain('unavailable');
+    // Cloud providers no longer fall back to on-device
+    // When all cloud APIs fail, it returns the last failed provider with error
+    expect(result.isFromFallback).toBe(true);
+    expect(result.error).toBeTruthy();
+    // Should still return a fallback caption
+    expect(result.caption).toBeTruthy();
   });
 });
 

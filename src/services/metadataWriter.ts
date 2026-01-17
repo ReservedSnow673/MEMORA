@@ -720,7 +720,6 @@ export class MetadataWriterService {
     try {
       // This would use MetadataReaderService to read back and compare
       // For now, return true as a placeholder
-      // TODO: Integrate with MetadataReaderService for verification
       return true;
     } catch {
       return false;

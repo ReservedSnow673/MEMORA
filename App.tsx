@@ -9,6 +9,21 @@ import { store, persistor } from './src/store';
 import ModernNavigation from './src/navigation/ModernNavigation';
 import { ModernThemeProvider } from './src/theme';
 import { ToastProvider } from './src/components/ui';
+import { initializeApiKeys } from './src/services/apiKeys';
+
+// Initialize API keys from .env into Redux store
+// This runs after PersistGate restores state, so user keys won't be overwritten
+function ApiKeyInitializer({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    // Small delay to ensure Redux state is fully restored
+    const timer = setTimeout(() => {
+      initializeApiKeys();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  return <>{children}</>;
+}
 
 export default function App() {
   const LoadingComponent = () => (
@@ -21,12 +36,14 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Provider store={store}>
         <PersistGate loading={<LoadingComponent />} persistor={persistor}>
-          <ModernThemeProvider>
-            <ToastProvider>
-              <StatusBar style="light" />
-              <ModernNavigation />
-            </ToastProvider>
-          </ModernThemeProvider>
+          <ApiKeyInitializer>
+            <ModernThemeProvider>
+              <ToastProvider>
+                <StatusBar style="light" />
+                <ModernNavigation />
+              </ToastProvider>
+            </ModernThemeProvider>
+          </ApiKeyInitializer>
         </PersistGate>
       </Provider>
     </GestureHandlerRootView>

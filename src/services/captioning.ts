@@ -1,9 +1,7 @@
 import * as FileSystem from 'expo-file-system';
-import { OPENAI_API_KEY, GEMINI_API_KEY } from '@env';
-
-// Environment variables from .env (undefined if not set)
-const ENV_OPENAI_API_KEY = OPENAI_API_KEY;
-const ENV_GEMINI_API_KEY = GEMINI_API_KEY;
+import { processImageFromUri } from './visionLite';
+import type { VisionResult } from './visionLite';
+import { getApiKeys } from './apiKeys';
 
 export type AIProvider = 'openai' | 'gemini' | 'ondevice';
 
@@ -35,18 +33,29 @@ export class CaptioningService {
   private config: AIServiceConfig;
 
   constructor(config: Partial<AIServiceConfig> = {}) {
+    // Get keys from centralized API key management
+    const centralizedKeys = getApiKeys();
+    
     this.config = {
       preferredProvider: config.preferredProvider || 'gemini',
       enableFallback: config.enableFallback ?? true,
       maxRetries: config.maxRetries ?? 2,
-      // Priority: user-provided key > env variable > undefined
-      openaiApiKey: config.openaiApiKey || ENV_OPENAI_API_KEY,
-      geminiApiKey: config.geminiApiKey || ENV_GEMINI_API_KEY,
+      // Priority: user-provided key > centralized keys (from Redux/env)
+      openaiApiKey: config.openaiApiKey || centralizedKeys.openaiApiKey,
+      geminiApiKey: config.geminiApiKey || centralizedKeys.geminiApiKey,
     };
   }
 
   updateConfig(config: Partial<AIServiceConfig>): void {
-    this.config = { ...this.config, ...config };
+    // Re-fetch centralized keys when updating config
+    const centralizedKeys = getApiKeys();
+    this.config = { 
+      ...this.config, 
+      ...config,
+      // Ensure we always have the latest keys
+      openaiApiKey: config.openaiApiKey || this.config.openaiApiKey || centralizedKeys.openaiApiKey,
+      geminiApiKey: config.geminiApiKey || this.config.geminiApiKey || centralizedKeys.geminiApiKey,
+    };
   }
 
   async generateCaption(
@@ -74,6 +83,8 @@ export class CaptioningService {
           processingTimeMs: Date.now() - startTime,
         };
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        
         if (!this.config.enableFallback || i === providers.length - 1) {
           return {
             caption: this.getFallbackCaption(detailed),
@@ -81,9 +92,10 @@ export class CaptioningService {
             provider: isOnDeviceMode ? 'ondevice' : provider,
             isFromFallback: true,
             processingTimeMs: Date.now() - startTime,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: errorMsg,
           };
         }
+        // Continue to next provider in fallback chain
       }
     }
 
@@ -98,34 +110,34 @@ export class CaptioningService {
   }
 
   private getProviderOrder(): AIProvider[] {
-    // Special handling for 'ondevice' - it silently uses Gemini then OpenAI as fallback
+    // Special handling for 'ondevice' - try on-device first, then cloud APIs as fallback
     if (this.config.preferredProvider === 'ondevice') {
-      const order: AIProvider[] = [];
-      // Try Gemini first if available
-      if (this.config.geminiApiKey) {
-        order.push('gemini');
-      }
-      // Then OpenAI as fallback
+      const order: AIProvider[] = ['ondevice'];
+      // Fallback to OpenAI if available
       if (this.config.openaiApiKey) {
         order.push('openai');
       }
-      // Final fallback to local placeholder
-      order.push('ondevice');
+      // Then Gemini as secondary fallback
+      if (this.config.geminiApiKey) {
+        order.push('gemini');
+      }
       return order;
     }
 
+    // For cloud providers (gemini, openai), DO NOT fall back to on-device
+    // On-device is only used when explicitly selected
     const order: AIProvider[] = [this.config.preferredProvider];
     
     if (this.config.enableFallback) {
+      // Only fall back between cloud providers, never to on-device
       if (this.config.preferredProvider !== 'gemini' && this.config.geminiApiKey) {
         order.push('gemini');
       }
       if (this.config.preferredProvider !== 'openai' && this.config.openaiApiKey) {
         order.push('openai');
       }
-      if (!order.includes('ondevice')) {
-        order.push('ondevice');
-      }
+      // NOTE: We intentionally do NOT add 'ondevice' as fallback for cloud providers
+      // On-device processing should only be used when explicitly selected
     }
 
     return order;
@@ -150,7 +162,7 @@ export class CaptioningService {
 
   private async callOpenAI(imageUri: string, detailed: boolean): Promise<string> {
     if (!this.config.openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
+      throw new Error('OpenAI API key not configured. Please add OPENAI_API_KEY to your .env file.');
     }
 
     const base64Image = await this.imageToBase64(imageUri);
@@ -199,7 +211,7 @@ export class CaptioningService {
 
   private async callGemini(imageUri: string, detailed: boolean): Promise<string> {
     if (!this.config.geminiApiKey) {
-      throw new Error('Gemini API key not configured');
+      throw new Error('Gemini API key not configured. Please add GEMINI_API_KEY to your .env file.');
     }
 
     const base64Image = await this.imageToBase64(imageUri);
@@ -246,8 +258,58 @@ export class CaptioningService {
     return text.trim();
   }
 
-  private async callOnDevice(_imageUri: string, detailed: boolean): Promise<string> {
-    return this.getFallbackCaption(detailed);
+  private async callOnDevice(imageUri: string, detailed: boolean): Promise<string> {
+    // Use Memora Vision Lite v0.5 for on-device processing
+    const result: VisionResult = await processImageFromUri(imageUri);
+    
+    // If the pipeline completely failed, throw error to trigger fallback
+    if (!result.success) {
+      throw new Error(`On-device processing failed: ${result.error || 'Unknown error'}`);
+    }
+    
+    // Check if we got a meaningful caption (not just the fallback)
+    const caption = result.caption_text;
+    const isMinimalCaption = caption.toLowerCase().includes('unclear content') || 
+                              caption === 'An image.' ||
+                              caption.length < 15;
+    
+    // If confidence is very low AND we got a minimal caption, escalate to cloud
+    if (result.confidence_score < 0.2 && isMinimalCaption) {
+      throw new Error(`On-device confidence too low (${(result.confidence_score * 100).toFixed(0)}%), falling back to cloud API`);
+    }
+    
+    // If we have a reasonable caption (even with lower confidence), use it
+    // This allows text-based captions from OCR to pass through
+    if (!isMinimalCaption || result.confidence_score >= 0.3) {
+      // For detailed captions, try to expand with more context
+      if (detailed) {
+        const semantic = result.signal_breakdown.semantic;
+        let detailedCaption = caption;
+        
+        // Add environment context if available
+        if (semantic.environment !== 'unknown') {
+          detailedCaption = detailedCaption.replace(/\.$/, ` in ${semantic.environment === 'indoor' ? 'an indoor' : 'an outdoor'} setting.`);
+        }
+        
+        // Add text content if present
+        if (semantic.textPresent && semantic.textContent) {
+          detailedCaption += ` The image contains text: "${semantic.textContent}".`;
+        }
+        
+        // Add object context
+        if (semantic.secondaryObjects.length > 0) {
+          const objects = semantic.secondaryObjects.slice(0, 3).join(', ');
+          detailedCaption += ` Additional elements include: ${objects}.`;
+        }
+        
+        return detailedCaption;
+      }
+      
+      return caption;
+    }
+    
+    // Low confidence with minimal caption - escalate
+    throw new Error(`On-device processing could not identify content (${(result.confidence_score * 100).toFixed(0)}% confidence)`);
   }
 
   private async imageToBase64(uri: string): Promise<string> {
