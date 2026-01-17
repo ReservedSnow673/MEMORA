@@ -349,10 +349,11 @@ export class BackgroundScheduler {
       }
 
       // Get new images since last run (use static detectUnprocessedImages)
-      const unprocessedResult = await GalleryAccessService.detectUnprocessedImages(
+      const processedIds = await GalleryAccessService.getProcessedImageIds();
+      const newImages = await GalleryAccessService.detectUnprocessedImages(
+        Array.from(processedIds),
         this.config.maxImagesPerRun
       );
-      const newImages = unprocessedResult.unprocessedImages;
 
       if (newImages.length === 0) {
         this.state.lastRunResult = 'success';
@@ -480,9 +481,13 @@ export class BackgroundScheduler {
    */
   async getPendingCount(): Promise<number> {
     try {
-      const unprocessedResult = await GalleryAccessService.detectUnprocessedImages(100);
-      this.state.pendingCount = unprocessedResult.unprocessedImages.length;
-      return unprocessedResult.unprocessedImages.length;
+      const processedIds = await GalleryAccessService.getProcessedImageIds();
+      const unprocessedImages = await GalleryAccessService.detectUnprocessedImages(
+        Array.from(processedIds),
+        100
+      );
+      this.state.pendingCount = unprocessedImages.length;
+      return unprocessedImages.length;
     } catch {
       return 0;
     }

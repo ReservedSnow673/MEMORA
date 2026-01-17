@@ -79,7 +79,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 jest.mock('../../src/services/galleryAccess', () => ({
   GalleryAccessService: {
     hasFullAccess: jest.fn().mockResolvedValue(true),
-    detectUnprocessedImages: jest.fn().mockResolvedValue({ unprocessedImages: [], totalUnprocessed: 0 }),
+    detectUnprocessedImages: jest.fn().mockResolvedValue([]),
     addProcessedImageId: jest.fn().mockResolvedValue(undefined),
     clearProcessedImageIds: jest.fn().mockResolvedValue(undefined),
     getProcessedImageIds: jest.fn().mockResolvedValue(new Set()),
@@ -400,13 +400,11 @@ describe('BackgroundScheduler', () => {
       // Mock gallery to return images (static methods)
       const { GalleryAccessService } = require('../../src/services/galleryAccess');
       GalleryAccessService.hasFullAccess.mockResolvedValue(true);
-      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({
-        unprocessedImages: [
-          { id: 'img-1', uri: 'file:///test1.jpg' },
-          { id: 'img-2', uri: 'file:///test2.jpg' },
-        ],
-        totalUnprocessed: 2,
-      });
+      GalleryAccessService.getProcessedImageIds.mockResolvedValue(new Set());
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue([
+        { id: 'img-1', uri: 'file:///test1.jpg' },
+        { id: 'img-2', uri: 'file:///test2.jpg' },
+      ]);
       GalleryAccessService.addProcessedImageId.mockResolvedValue(undefined);
       
       const scheduler = new BackgroundScheduler({ delayBetweenImages: 0 });
@@ -422,12 +420,10 @@ describe('BackgroundScheduler', () => {
       const { MetadataReaderService } = require('../../src/services/metadataReader');
       
       GalleryAccessService.hasFullAccess.mockResolvedValue(true);
-      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({
-        unprocessedImages: [
-          { id: 'img-1', uri: 'file:///test1.jpg' },
-        ],
-        totalUnprocessed: 1,
-      });
+      GalleryAccessService.getProcessedImageIds.mockResolvedValue(new Set());
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue([
+        { id: 'img-1', uri: 'file:///test1.jpg' },
+      ]);
       GalleryAccessService.addProcessedImageId.mockResolvedValue(undefined);
       
       MetadataReaderService.readImageMetadata.mockResolvedValue({ description: 'Existing caption' });
@@ -446,12 +442,10 @@ describe('BackgroundScheduler', () => {
       const { MetadataReaderService } = require('../../src/services/metadataReader');
       
       GalleryAccessService.hasFullAccess.mockResolvedValue(true);
-      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({
-        unprocessedImages: [
-          { id: 'img-1', uri: 'file:///test1.jpg' },
-        ],
-        totalUnprocessed: 1,
-      });
+      GalleryAccessService.getProcessedImageIds.mockResolvedValue(new Set());
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue([
+        { id: 'img-1', uri: 'file:///test1.jpg' },
+      ]);
       GalleryAccessService.addProcessedImageId.mockResolvedValue(undefined);
       
       // Reset metadata reader to return no existing caption (static methods)
@@ -485,7 +479,8 @@ describe('BackgroundScheduler', () => {
       const { MetadataReaderService } = require('../../src/services/metadataReader');
       
       GalleryAccessService.hasFullAccess.mockResolvedValue(true);
-      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({ unprocessedImages: [], totalUnprocessed: 0 });
+      GalleryAccessService.getProcessedImageIds.mockResolvedValue(new Set());
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue([]);
       GalleryAccessService.addProcessedImageId.mockResolvedValue(undefined);
       
       MetadataReaderService.readImageMetadata.mockResolvedValue(null);
@@ -510,12 +505,10 @@ describe('BackgroundScheduler', () => {
   describe('getPendingCount', () => {
     it('should return count of pending images', async () => {
       const { GalleryAccessService } = require('../../src/services/galleryAccess');
-      GalleryAccessService.detectUnprocessedImages.mockResolvedValue({
-        unprocessedImages: [
-          { id: '1' }, { id: '2' }, { id: '3' },
-        ],
-        totalUnprocessed: 3,
-      });
+      GalleryAccessService.getProcessedImageIds.mockResolvedValue(new Set());
+      GalleryAccessService.detectUnprocessedImages.mockResolvedValue([
+        { id: '1' }, { id: '2' }, { id: '3' },
+      ]);
       
       const scheduler = new BackgroundScheduler();
       const count = await scheduler.getPendingCount();
