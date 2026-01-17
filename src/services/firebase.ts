@@ -13,14 +13,33 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { User } from '../types';
 
-// Firebase configuration - Replace with your actual config
+// Try to import env variables (will be undefined if not set)
+let ENV_FIREBASE_API_KEY: string | undefined;
+let ENV_FIREBASE_AUTH_DOMAIN: string | undefined;
+let ENV_FIREBASE_PROJECT_ID: string | undefined;
+let ENV_FIREBASE_STORAGE_BUCKET: string | undefined;
+let ENV_FIREBASE_MESSAGING_SENDER_ID: string | undefined;
+let ENV_FIREBASE_APP_ID: string | undefined;
+try {
+  const env = require('@env');
+  ENV_FIREBASE_API_KEY = env.FIREBASE_API_KEY;
+  ENV_FIREBASE_AUTH_DOMAIN = env.FIREBASE_AUTH_DOMAIN;
+  ENV_FIREBASE_PROJECT_ID = env.FIREBASE_PROJECT_ID;
+  ENV_FIREBASE_STORAGE_BUCKET = env.FIREBASE_STORAGE_BUCKET;
+  ENV_FIREBASE_MESSAGING_SENDER_ID = env.FIREBASE_MESSAGING_SENDER_ID;
+  ENV_FIREBASE_APP_ID = env.FIREBASE_APP_ID;
+} catch {
+  // Environment variables not available
+}
+
+// Firebase configuration - uses env variables or placeholders
 const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-auth-domain",
-  projectId: "your-project-id",
-  storageBucket: "your-storage-bucket",
-  messagingSenderId: "your-messaging-sender-id",
-  appId: "your-app-id"
+  apiKey: ENV_FIREBASE_API_KEY || "your-api-key",
+  authDomain: ENV_FIREBASE_AUTH_DOMAIN || "your-auth-domain",
+  projectId: ENV_FIREBASE_PROJECT_ID || "your-project-id",
+  storageBucket: ENV_FIREBASE_STORAGE_BUCKET || "your-storage-bucket",
+  messagingSenderId: ENV_FIREBASE_MESSAGING_SENDER_ID || "your-messaging-sender-id",
+  appId: ENV_FIREBASE_APP_ID || "your-app-id"
 };
 
 // Initialize Firebase

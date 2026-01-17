@@ -1,5 +1,17 @@
 import * as FileSystem from 'expo-file-system';
 
+// Try to import env variables (will be undefined if not set)
+let ENV_OPENAI_API_KEY: string | undefined;
+let ENV_GEMINI_API_KEY: string | undefined;
+try {
+  const env = require('@env');
+  ENV_OPENAI_API_KEY = env.OPENAI_API_KEY;
+  ENV_GEMINI_API_KEY = env.GEMINI_API_KEY;
+} catch {
+  ENV_OPENAI_API_KEY = undefined;
+  ENV_GEMINI_API_KEY = undefined;
+}
+
 export type AIProvider = 'openai' | 'gemini' | 'ondevice';
 
 export interface CaptionResult {
@@ -31,11 +43,12 @@ export class CaptioningService {
 
   constructor(config: Partial<AIServiceConfig> = {}) {
     this.config = {
-      preferredProvider: config.preferredProvider || 'openai',
+      preferredProvider: config.preferredProvider || 'gemini',
       enableFallback: config.enableFallback ?? true,
       maxRetries: config.maxRetries ?? 2,
-      openaiApiKey: config.openaiApiKey,
-      geminiApiKey: config.geminiApiKey,
+      // Priority: user-provided key > env variable > undefined
+      openaiApiKey: config.openaiApiKey || ENV_OPENAI_API_KEY,
+      geminiApiKey: config.geminiApiKey || ENV_GEMINI_API_KEY,
     };
   }
 
