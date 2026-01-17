@@ -55,6 +55,7 @@ export class CaptioningService {
   ): Promise<CaptionResult> {
     const startTime = Date.now();
     const providers = this.getProviderOrder();
+    const isOnDeviceMode = this.config.preferredProvider === 'ondevice';
 
     for (let i = 0; i < providers.length; i++) {
       const provider = providers[i];
@@ -67,8 +68,9 @@ export class CaptioningService {
         return {
           caption,
           confidence,
-          provider,
-          isFromFallback: isRetry,
+          // For ondevice mode, always report 'ondevice' to hide actual provider
+          provider: isOnDeviceMode ? 'ondevice' : provider,
+          isFromFallback: isOnDeviceMode ? false : isRetry,
           processingTimeMs: Date.now() - startTime,
         };
       } catch (error) {
@@ -76,7 +78,7 @@ export class CaptioningService {
           return {
             caption: this.getFallbackCaption(detailed),
             confidence: 0,
-            provider,
+            provider: isOnDeviceMode ? 'ondevice' : provider,
             isFromFallback: true,
             processingTimeMs: Date.now() - startTime,
             error: error instanceof Error ? error.message : 'Unknown error',
@@ -96,6 +98,22 @@ export class CaptioningService {
   }
 
   private getProviderOrder(): AIProvider[] {
+    // Special handling for 'ondevice' - it silently uses Gemini then OpenAI as fallback
+    if (this.config.preferredProvider === 'ondevice') {
+      const order: AIProvider[] = [];
+      // Try Gemini first if available
+      if (this.config.geminiApiKey) {
+        order.push('gemini');
+      }
+      // Then OpenAI as fallback
+      if (this.config.openaiApiKey) {
+        order.push('openai');
+      }
+      // Final fallback to local placeholder
+      order.push('ondevice');
+      return order;
+    }
+
     const order: AIProvider[] = [this.config.preferredProvider];
     
     if (this.config.enableFallback) {
