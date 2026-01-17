@@ -1,5 +1,6 @@
-import auth from '@react-native-firebase/auth';
-import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+// Firebase Auth Service
+// Note: Using a fallback mock implementation for Expo Go compatibility
+// For production with native Firebase, use @react-native-firebase/auth
 
 export interface AuthUser {
   uid: string;
@@ -13,37 +14,83 @@ export interface AuthError {
   message: string;
 }
 
+// Check if we're running in an environment with native Firebase
+let firebaseAuth: any = null;
+let isNativeFirebaseAvailable = false;
+
+try {
+  // Only try to import native Firebase if available
+  // This will fail in Expo Go but work in bare workflow / dev client
+  const nativeAuth = require('@react-native-firebase/auth');
+  firebaseAuth = nativeAuth.default;
+  isNativeFirebaseAvailable = true;
+} catch (error) {
+  // Native Firebase not available, use mock implementation
+  console.log('Native Firebase not available, using offline-first mode');
+}
+
 class FirebaseAuthService {
   private currentUser: AuthUser | null = null;
+  private isInitialized: boolean = false;
 
   constructor() {
-    this.setupAuthStateListener();
+    if (isNativeFirebaseAvailable && firebaseAuth) {
+      this.setupAuthStateListener();
+    } else {
+      // Create an anonymous user for offline-first mode
+      this.currentUser = {
+        uid: `offline-${Date.now()}`,
+        email: null,
+        displayName: null,
+        isAnonymous: true,
+      };
+      this.isInitialized = true;
+    }
   }
 
   /**
    * Set up listener for auth state changes
    */
   private setupAuthStateListener(): void {
-    auth().onAuthStateChanged((user) => {
-      if (user) {
-        this.currentUser = {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          isAnonymous: user.isAnonymous,
-        };
-      } else {
-        this.currentUser = null;
-      }
-    });
+    if (!isNativeFirebaseAvailable || !firebaseAuth) return;
+    
+    try {
+      firebaseAuth().onAuthStateChanged((user: any) => {
+        if (user) {
+          this.currentUser = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            isAnonymous: user.isAnonymous,
+          };
+        } else {
+          this.currentUser = null;
+        }
+        this.isInitialized = true;
+      });
+    } catch (error) {
+      console.error('Failed to set up auth state listener:', error);
+      this.isInitialized = true;
+    }
   }
 
   /**
    * Sign up with email and password
    */
   async signUp(email: string, password: string): Promise<AuthUser> {
+    if (!isNativeFirebaseAvailable || !firebaseAuth) {
+      // Create a mock user for offline mode
+      this.currentUser = {
+        uid: `user-${Date.now()}`,
+        email: email,
+        displayName: null,
+        isAnonymous: false,
+      };
+      return this.currentUser;
+    }
+    
     try {
-      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      const userCredential = await firebaseAuth().createUserWithEmailAndPassword(email, password);
       const user = userCredential.user;
       this.currentUser = {
         uid: user.uid,
@@ -61,8 +108,19 @@ class FirebaseAuthService {
    * Sign in with email and password
    */
   async signIn(email: string, password: string): Promise<AuthUser> {
+    if (!isNativeFirebaseAvailable || !firebaseAuth) {
+      // Create a mock user for offline mode
+      this.currentUser = {
+        uid: `user-${Date.now()}`,
+        email: email,
+        displayName: null,
+        isAnonymous: false,
+      };
+      return this.currentUser;
+    }
+    
     try {
-      const userCredential = await auth().signInWithEmailAndPassword(email, password);
+      const userCredential = await firebaseAuth().signInWithEmailAndPassword(email, password);
       const user = userCredential.user;
       this.currentUser = {
         uid: user.uid,
@@ -80,8 +138,21 @@ class FirebaseAuthService {
    * Sign in anonymously (for offline-first usage)
    */
   async signInAnonymously(): Promise<AuthUser> {
+    if (!isNativeFirebaseAvailable || !firebaseAuth) {
+      // Create an anonymous user for offline mode
+      if (!this.currentUser) {
+        this.currentUser = {
+          uid: `anon-${Date.now()}`,
+          email: null,
+          displayName: null,
+          isAnonymous: true,
+        };
+      }
+      return this.currentUser;
+    }
+    
     try {
-      const userCredential = await auth().signInAnonymously();
+      const userCredential = await firebaseAuth().signInAnonymously();
       const user = userCredential.user;
       this.currentUser = {
         uid: user.uid,
@@ -99,8 +170,13 @@ class FirebaseAuthService {
    * Sign out current user
    */
   async signOut(): Promise<void> {
+    if (!isNativeFirebaseAvailable || !firebaseAuth) {
+      this.currentUser = null;
+      return;
+    }
+    
     try {
-      await auth().signOut();
+      await firebaseAuth().signOut();
       this.currentUser = null;
     } catch (error) {
       throw this.handleAuthError(error);
@@ -125,8 +201,12 @@ class FirebaseAuthService {
    * Get ID token for API calls
    */
   async getIdToken(): Promise<string> {
+    if (!isNativeFirebaseAvailable || !firebaseAuth) {
+      return `offline-token-${this.currentUser?.uid || 'none'}`;
+    }
+    
     try {
-      const user = auth().currentUser;
+      const user = firebaseAuth().currentUser;
       if (!user) {
         throw new Error('No authenticated user');
       }
@@ -140,8 +220,15 @@ class FirebaseAuthService {
    * Update user profile
    */
   async updateProfile(displayName: string, photoURL?: string): Promise<void> {
+    if (!isNativeFirebaseAvailable || !firebaseAuth) {
+      if (this.currentUser) {
+        this.currentUser.displayName = displayName;
+      }
+      return;
+    }
+    
     try {
-      const user = auth().currentUser;
+      const user = firebaseAuth().currentUser;
       if (!user) {
         throw new Error('No authenticated user');
       }
@@ -161,31 +248,13 @@ class FirebaseAuthService {
    * Send password reset email
    */
   async sendPasswordResetEmail(email: string): Promise<void> {
-    try {
-      await auth().sendPasswordResetEmail(email);
-    } catch (error) {
-      throw this.handleAuthError(error);
+    if (!isNativeFirebaseAvailable || !firebaseAuth) {
+      console.log('Password reset not available in offline mode');
+      return;
     }
-  }
-
-  /**
-   * Link anonymous account to email/password
-   */
-  async linkAnonymousToEmail(email: string, password: string): Promise<AuthUser> {
+    
     try {
-      const credential = auth.EmailAuthProvider.credential(email, password);
-      const userCredential = await auth().currentUser?.linkWithCredential(credential);
-      if (!userCredential) {
-        throw new Error('Failed to link accounts');
-      }
-      const user = userCredential.user;
-      this.currentUser = {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        isAnonymous: user.isAnonymous,
-      };
-      return this.currentUser;
+      await firebaseAuth().sendPasswordResetEmail(email);
     } catch (error) {
       throw this.handleAuthError(error);
     }
@@ -196,7 +265,7 @@ class FirebaseAuthService {
    */
   private handleAuthError(error: unknown): AuthError {
     if (error instanceof Error) {
-      const firebaseError = error as FirebaseAuthTypes.NativeFirebaseAuthError;
+      const firebaseError = error as any;
       return {
         code: firebaseError.code || 'unknown',
         message: firebaseError.message || 'An authentication error occurred',

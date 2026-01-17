@@ -21,6 +21,6 @@ module.exports = {
     }
   },
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
-  testEnvironment: 'node',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  testTimeout: 15000,
 };

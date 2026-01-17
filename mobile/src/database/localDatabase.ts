@@ -172,38 +172,40 @@ class LocalDatabase {
   async getImageById(id: string): Promise<ImageRecord | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = await this.db.getFirstAsync<any>(
+    const row = await this.db.getFirstAsync<Record<string, unknown>>(
       'SELECT * FROM images WHERE id = ?',
       [id]
     );
 
-    return result ? this.mapToImageRecord(result) : null;
+    if (!row) return null;
+    return this.mapToImageRecord(row);
   }
 
   async getImageByAssetId(assetId: string): Promise<ImageRecord | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = await this.db.getFirstAsync<any>(
+    const row = await this.db.getFirstAsync<Record<string, unknown>>(
       'SELECT * FROM images WHERE asset_id = ?',
       [assetId]
     );
 
-    return result ? this.mapToImageRecord(result) : null;
+    if (!row) return null;
+    return this.mapToImageRecord(row);
   }
 
   async updateImage(id: string, updates: Partial<ImageRecord>): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | null)[] = [];
 
     if (updates.caption !== undefined) {
       fields.push('caption = ?');
-      values.push(updates.caption);
+      values.push(updates.caption ?? null);
     }
     if (updates.captionSource !== undefined) {
       fields.push('caption_source = ?');
-      values.push(updates.captionSource);
+      values.push(updates.captionSource ?? null);
     }
     if (updates.captionGeneratedAt !== undefined) {
       fields.push('caption_generated_at = ?');
@@ -211,11 +213,11 @@ class LocalDatabase {
     }
     if (updates.aiModel !== undefined) {
       fields.push('ai_model = ?');
-      values.push(updates.aiModel);
+      values.push(updates.aiModel ?? null);
     }
     if (updates.confidence !== undefined) {
       fields.push('confidence = ?');
-      values.push(updates.confidence);
+      values.push(updates.confidence ?? null);
     }
     if (updates.processingStatus !== undefined) {
       fields.push('processing_status = ?');
@@ -223,7 +225,7 @@ class LocalDatabase {
     }
     if (updates.errorMessage !== undefined) {
       fields.push('error_message = ?');
-      values.push(updates.errorMessage);
+      values.push(updates.errorMessage ?? null);
     }
     if (updates.syncStatus !== undefined) {
       fields.push('sync_status = ?');
@@ -253,26 +255,33 @@ class LocalDatabase {
   async getImagesByStatus(status: ImageRecord['processingStatus']): Promise<ImageRecord[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const results = await this.db.getAllAsync<any>(
+    const rows = await this.db.getAllAsync<Record<string, unknown>>(
       'SELECT * FROM images WHERE processing_status = ? ORDER BY created_at DESC',
       [status]
     );
 
-    return results.map(this.mapToImageRecord);
+    return rows.map(row => this.mapToImageRecord(row));
   }
 
   async getPendingImages(limit = 50): Promise<ImageRecord[]> {
-    return this.getImagesByStatus('pending');
+    if (!this.db) throw new Error('Database not initialized');
+
+    const rows = await this.db.getAllAsync<Record<string, unknown>>(
+      'SELECT * FROM images WHERE processing_status = ? ORDER BY created_at DESC LIMIT ?',
+      ['pending', limit]
+    );
+
+    return rows.map(row => this.mapToImageRecord(row));
   }
 
   async getUnsyncedImages(): Promise<ImageRecord[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const results = await this.db.getAllAsync<any>(
+    const rows = await this.db.getAllAsync<Record<string, unknown>>(
       "SELECT * FROM images WHERE sync_status = 'pending' AND processing_status = 'completed'"
     );
 
-    return results.map(this.mapToImageRecord);
+    return rows.map(row => this.mapToImageRecord(row));
   }
 
   async getImageStats(): Promise<{
@@ -284,9 +293,7 @@ class LocalDatabase {
   }> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const total = await this.db.getFirstAsync<{ count: number }>(
-      'SELECT COUNT(*) as count FROM images'
-    );
+    const total = await this.db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM images');
     const captioned = await this.db.getFirstAsync<{ count: number }>(
       "SELECT COUNT(*) as count FROM images WHERE processing_status = 'completed'"
     );
@@ -357,12 +364,12 @@ class LocalDatabase {
   async getCaptionHistory(imageId: string): Promise<CaptionHistory[]> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const results = await this.db.getAllAsync<any>(
+    const rows = await this.db.getAllAsync<Record<string, unknown>>(
       'SELECT * FROM caption_history WHERE image_id = ? ORDER BY created_at DESC',
       [imageId]
     );
 
-    return results.map(this.mapToCaptionHistory);
+    return rows.map(row => this.mapToCaptionHistory(row));
   }
 
   async addProcessingLog(
@@ -406,12 +413,12 @@ class LocalDatabase {
   async getMetadata(key: string): Promise<string | null> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const result = await this.db.getFirstAsync<{ value: string }>(
+    const row = await this.db.getFirstAsync<{ value: string }>(
       'SELECT value FROM metadata WHERE key = ?',
       [key]
     );
 
-    return result?.value ?? null;
+    return row?.value ?? null;
   }
 
   async setMetadata(key: string, value: string): Promise<void> {
@@ -433,37 +440,37 @@ class LocalDatabase {
     `);
   }
 
-  private mapToImageRecord(row: any): ImageRecord {
+  private mapToImageRecord(row: Record<string, unknown>): ImageRecord {
     return {
-      id: row.id,
-      assetId: row.asset_id,
-      uri: row.uri,
-      filename: row.filename,
-      width: row.width,
-      height: row.height,
-      createdAt: new Date(row.created_at),
-      modifiedAt: new Date(row.modified_at),
-      caption: row.caption,
-      captionSource: row.caption_source,
-      captionGeneratedAt: row.caption_generated_at ? new Date(row.caption_generated_at) : undefined,
-      aiModel: row.ai_model,
-      confidence: row.confidence,
-      processingStatus: row.processing_status,
-      errorMessage: row.error_message,
-      syncStatus: row.sync_status,
-      syncedAt: row.synced_at ? new Date(row.synced_at) : undefined,
+      id: row.id as string,
+      assetId: row.asset_id as string,
+      uri: row.uri as string,
+      filename: row.filename as string,
+      width: row.width as number,
+      height: row.height as number,
+      createdAt: new Date(row.created_at as number),
+      modifiedAt: new Date(row.modified_at as number),
+      caption: row.caption as string | undefined,
+      captionSource: row.caption_source as ImageRecord['captionSource'],
+      captionGeneratedAt: row.caption_generated_at ? new Date(row.caption_generated_at as number) : undefined,
+      aiModel: row.ai_model as string | undefined,
+      confidence: row.confidence as number | undefined,
+      processingStatus: row.processing_status as ImageRecord['processingStatus'],
+      errorMessage: row.error_message as string | undefined,
+      syncStatus: row.sync_status as ImageRecord['syncStatus'],
+      syncedAt: row.synced_at ? new Date(row.synced_at as number) : undefined,
     };
   }
 
-  private mapToCaptionHistory(row: any): CaptionHistory {
+  private mapToCaptionHistory(row: Record<string, unknown>): CaptionHistory {
     return {
-      id: row.id,
-      imageId: row.image_id,
-      caption: row.caption,
-      source: row.source,
-      aiModel: row.ai_model,
-      confidence: row.confidence,
-      createdAt: new Date(row.created_at),
+      id: row.id as string,
+      imageId: row.image_id as string,
+      caption: row.caption as string,
+      source: row.source as CaptionHistory['source'],
+      aiModel: row.ai_model as string | undefined,
+      confidence: row.confidence as number | undefined,
+      createdAt: new Date(row.created_at as number),
       isActive: row.is_active === 1,
     };
   }
@@ -475,9 +482,9 @@ class LocalDatabase {
   async close(): Promise<void> {
     if (this.db) {
       await this.db.closeAsync();
-      this.db = null;
-      this.isInitialized = false;
     }
+    this.db = null;
+    this.isInitialized = false;
   }
 }
 

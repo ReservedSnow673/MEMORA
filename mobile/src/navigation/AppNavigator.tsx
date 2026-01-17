@@ -46,7 +46,6 @@ export function AppNavigator(): React.ReactElement {
         initialRouteName="Permission"
         screenOptions={{
           headerShown: true,
-          headerBackTitleVisible: false,
           headerTitleStyle: {
             fontWeight: '600',
           },

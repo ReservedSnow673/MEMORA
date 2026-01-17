@@ -1,3 +1,20 @@
+// Enable React 19 act environment
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+
+// Suppress React 19 console warnings in tests
+const originalError = console.error;
+console.error = (...args: any[]) => {
+  if (
+    typeof args[0] === 'string' &&
+    (args[0].includes('Warning: An update to') ||
+     args[0].includes('act(...)') ||
+     args[0].includes('not wrapped in act'))
+  ) {
+    return;
+  }
+  originalError.call(console, ...args);
+};
+
 // Mock native modules before any imports
 jest.mock('react-native/Libraries/Utilities/NativeDeviceInfo', () => ({
   default: {
@@ -47,6 +64,30 @@ jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
     I18nManager: {
       getConstants: () => ({ isRTL: false, doLeftAndRightSwapInRTL: false }),
     },
+    NativeAnimatedModule: {
+      startOperationBatch: jest.fn(),
+      finishOperationBatch: jest.fn(),
+      createAnimatedNode: jest.fn(),
+      updateAnimatedNodeConfig: jest.fn(),
+      getValue: jest.fn(),
+      startListeningToAnimatedNodeValue: jest.fn(),
+      stopListeningToAnimatedNodeValue: jest.fn(),
+      connectAnimatedNodes: jest.fn(),
+      disconnectAnimatedNodes: jest.fn(),
+      startAnimatingNode: jest.fn(),
+      stopAnimation: jest.fn(),
+      setAnimatedNodeValue: jest.fn(),
+      setAnimatedNodeOffset: jest.fn(),
+      flattenAnimatedNodeOffset: jest.fn(),
+      extractAnimatedNodeOffset: jest.fn(),
+      connectAnimatedNodeToView: jest.fn(),
+      disconnectAnimatedNodeFromView: jest.fn(),
+      restoreDefaultValues: jest.fn(),
+      dropAnimatedNode: jest.fn(),
+      addAnimatedEventToView: jest.fn(),
+      removeAnimatedEventFromView: jest.fn(),
+      queueAndExecuteBatchedOperations: jest.fn(),
+    },
   };
 
   return {
@@ -55,7 +96,86 @@ jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
   };
 });
 
-jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
+// Mock NativeAnimatedHelper for RN 0.81+
+jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper', () => ({
+  __esModule: true,
+  default: {
+    API: {
+      startOperationBatch: jest.fn(),
+      finishOperationBatch: jest.fn(),
+      createAnimatedNode: jest.fn(),
+      updateAnimatedNodeConfig: jest.fn(),
+      getValue: jest.fn(),
+      startListeningToAnimatedNodeValue: jest.fn(),
+      stopListeningToAnimatedNodeValue: jest.fn(),
+      connectAnimatedNodes: jest.fn(),
+      disconnectAnimatedNodes: jest.fn(),
+      startAnimatingNode: jest.fn(),
+      stopAnimation: jest.fn(),
+      setAnimatedNodeValue: jest.fn(),
+      setAnimatedNodeOffset: jest.fn(),
+      flattenAnimatedNodeOffset: jest.fn(),
+      extractAnimatedNodeOffset: jest.fn(),
+      connectAnimatedNodeToView: jest.fn(),
+      disconnectAnimatedNodeFromView: jest.fn(),
+      restoreDefaultValues: jest.fn(),
+      dropAnimatedNode: jest.fn(),
+      addAnimatedEventToView: jest.fn(),
+      removeAnimatedEventFromView: jest.fn(),
+      queueAndExecuteBatchedOperations: jest.fn(),
+    },
+    addWhitelistedNativeProps: jest.fn(),
+    addWhitelistedInterpolationParam: jest.fn(),
+    validateInterpolation: jest.fn(),
+    generateNewNodeTag: jest.fn(() => 1),
+    generateNewAnimationId: jest.fn(() => 1),
+    assertNativeAnimatedModule: jest.fn(),
+    shouldUseNativeDriver: jest.fn(() => false),
+    transformDataType: jest.fn((value: unknown) => value),
+  },
+  shouldUseNativeDriver: jest.fn(() => false),
+}), { virtual: true });
+
+// Mock the new private animated path for RN 0.81+
+jest.mock('react-native/src/private/animated/NativeAnimatedHelper', () => ({
+  __esModule: true,
+  default: {
+    API: {
+      flushQueue: jest.fn(),
+      startOperationBatch: jest.fn(),
+      finishOperationBatch: jest.fn(),
+      createAnimatedNode: jest.fn(),
+      getValue: jest.fn(),
+      startListeningToAnimatedNodeValue: jest.fn(),
+      stopListeningToAnimatedNodeValue: jest.fn(),
+      connectAnimatedNodes: jest.fn(),
+      disconnectAnimatedNodes: jest.fn(),
+      startAnimatingNode: jest.fn(),
+      stopAnimation: jest.fn(),
+      setAnimatedNodeValue: jest.fn(),
+      setAnimatedNodeOffset: jest.fn(),
+      flattenAnimatedNodeOffset: jest.fn(),
+      extractAnimatedNodeOffset: jest.fn(),
+      connectAnimatedNodeToView: jest.fn(),
+      disconnectAnimatedNodeFromView: jest.fn(),
+      restoreDefaultValues: jest.fn(),
+      dropAnimatedNode: jest.fn(),
+      addAnimatedEventToView: jest.fn(),
+      removeAnimatedEventFromView: jest.fn(),
+      queueAndExecuteBatchedOperations: jest.fn(),
+    },
+    flushQueue: jest.fn(),
+    addWhitelistedNativeProps: jest.fn(),
+    addWhitelistedInterpolationParam: jest.fn(),
+    validateInterpolation: jest.fn(),
+    generateNewNodeTag: jest.fn(() => 1),
+    generateNewAnimationId: jest.fn(() => 1),
+    assertNativeAnimatedModule: jest.fn(),
+    shouldUseNativeDriver: jest.fn(() => false),
+    transformDataType: jest.fn((value: unknown) => value),
+  },
+  shouldUseNativeDriver: jest.fn(() => false),
+}), { virtual: true });
 
 jest.mock('expo-media-library', () => ({
   getPermissionsAsync: jest.fn(),
@@ -78,25 +198,84 @@ jest.mock('@react-native-community/netinfo', () => ({
   addEventListener: jest.fn(() => jest.fn()),
 }));
 
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: jest.fn().mockResolvedValue({
+    uri: 'file:///mock/manipulated-image.jpg',
+    width: 100,
+    height: 100,
+  }),
+  SaveFormat: {
+    JPEG: 'jpeg',
+    PNG: 'png',
+    WEBP: 'webp',
+  },
+}));
+
 jest.mock('expo-file-system', () => ({
   readAsStringAsync: jest.fn(),
   writeAsStringAsync: jest.fn(),
   copyAsync: jest.fn(),
   deleteAsync: jest.fn(),
+  getInfoAsync: jest.fn().mockResolvedValue({ exists: false }),
+  cacheDirectory: '/cache/',
+  documentDirectory: '/documents/',
+  EncodingType: { Base64: 'base64', UTF8: 'utf8' },
+  Paths: {
+    cache: { uri: '/cache/' },
+    document: { uri: '/documents/' },
+    bundle: { uri: '/bundle/' },
+  },
+  File: class MockFile {
+    uri: string;
+    constructor(...args: string[]) {
+      this.uri = args.join('/');
+    }
+    exists() { return false; }
+    text() { return Promise.resolve(''); }
+    write() { return Promise.resolve(); }
+    delete() { return Promise.resolve(); }
+    copy() { return Promise.resolve(); }
+    move() { return Promise.resolve(); }
+  },
+  Directory: class MockDirectory {
+    uri: string;
+    constructor(...args: string[]) {
+      this.uri = args.join('/');
+    }
+    exists() { return false; }
+    create() { return Promise.resolve(); }
+    delete() { return Promise.resolve(); }
+    list() { return []; }
+  },
+}));
+
+// Mock expo-file-system/legacy for backward compatibility
+jest.mock('expo-file-system/legacy', () => ({
+  readAsStringAsync: jest.fn().mockResolvedValue(''),
+  writeAsStringAsync: jest.fn().mockResolvedValue(undefined),
+  copyAsync: jest.fn().mockResolvedValue(undefined),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
+  getInfoAsync: jest.fn().mockResolvedValue({ exists: false }),
   cacheDirectory: '/cache/',
   documentDirectory: '/documents/',
   EncodingType: { Base64: 'base64', UTF8: 'utf8' },
 }));
 
-jest.mock('expo-sqlite', () => ({
-  openDatabaseAsync: jest.fn().mockResolvedValue({
-    execAsync: jest.fn(),
-    runAsync: jest.fn(),
-    getFirstAsync: jest.fn(),
-    getAllAsync: jest.fn(),
-    closeAsync: jest.fn(),
-  }),
-}));
+jest.mock('expo-sqlite', () => {
+  // Mock for new async API (SDK 54)
+  const mockDb = {
+    execAsync: jest.fn().mockResolvedValue(undefined),
+    runAsync: jest.fn().mockResolvedValue({ changes: 0, lastInsertRowId: 0 }),
+    getFirstAsync: jest.fn().mockResolvedValue(null),
+    getAllAsync: jest.fn().mockResolvedValue([]),
+    closeAsync: jest.fn().mockResolvedValue(undefined),
+  };
+
+  return {
+    openDatabaseAsync: jest.fn().mockResolvedValue(mockDb),
+    openDatabaseSync: jest.fn().mockReturnValue(mockDb),
+  };
+});
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(),

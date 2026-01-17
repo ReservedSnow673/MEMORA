@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { MetadataInfo } from '../types';
 
 export interface FullMetadata {
@@ -56,8 +56,8 @@ export async function readMetadata(uri: string): Promise<FullMetadata> {
 
 export async function readMetadataFromBase64(uri: string): Promise<FullMetadata> {
   try {
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
+    const base64 = await readAsStringAsync(uri, {
+      encoding: EncodingType.Base64,
     });
 
     return parseMetadataFromBytes(base64);

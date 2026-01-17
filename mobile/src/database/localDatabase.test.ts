@@ -1,13 +1,16 @@
 import { LocalDatabase, resetDatabase } from './localDatabase';
 
+// Mock for expo-sqlite new async API (SDK 54)
+const createMockDatabase = () => ({
+  execAsync: jest.fn().mockResolvedValue(undefined),
+  runAsync: jest.fn().mockResolvedValue({ changes: 1, lastInsertRowId: 1 }),
+  getFirstAsync: jest.fn().mockResolvedValue(null),
+  getAllAsync: jest.fn().mockResolvedValue([]),
+  closeAsync: jest.fn().mockResolvedValue(undefined),
+});
+
 jest.mock('expo-sqlite', () => ({
-  openDatabaseAsync: jest.fn().mockResolvedValue({
-    execAsync: jest.fn().mockResolvedValue(undefined),
-    runAsync: jest.fn().mockResolvedValue({ lastInsertRowId: 1 }),
-    getFirstAsync: jest.fn().mockResolvedValue(null),
-    getAllAsync: jest.fn().mockResolvedValue([]),
-    closeAsync: jest.fn().mockResolvedValue(undefined),
-  }),
+  openDatabaseAsync: jest.fn(() => Promise.resolve(createMockDatabase())),
 }));
 
 describe('LocalDatabase', () => {

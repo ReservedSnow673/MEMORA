@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { readAsStringAsync, writeAsStringAsync, copyAsync, deleteAsync, cacheDirectory, EncodingType } from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 
 export type MetadataFormat = 'xmp' | 'exif' | 'iptc';
@@ -34,8 +34,8 @@ export async function writeCaption(
       await createBackup(uri);
     }
 
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
+    const base64 = await readAsStringAsync(uri, {
+      encoding: EncodingType.Base64,
     });
 
     const formatsWritten: MetadataFormat[] = [];
@@ -69,7 +69,7 @@ export async function writeCaption(
 
 async function createBackup(uri: string): Promise<string> {
   const backupUri = uri.replace(/(\.[^.]+)$/, '_backup$1');
-  await FileSystem.copyAsync({
+  await copyAsync({
     from: uri,
     to: backupUri,
   });
@@ -77,15 +77,15 @@ async function createBackup(uri: string): Promise<string> {
 }
 
 async function writeModifiedImage(originalUri: string, base64: string): Promise<string> {
-  const tempUri = `${FileSystem.cacheDirectory}memora_temp_${Date.now()}.jpg`;
+  const tempUri = `${cacheDirectory}memora_temp_${Date.now()}.jpg`;
 
-  await FileSystem.writeAsStringAsync(tempUri, base64, {
-    encoding: FileSystem.EncodingType.Base64,
+  await writeAsStringAsync(tempUri, base64, {
+    encoding: EncodingType.Base64,
   });
 
   const asset = await MediaLibrary.createAssetAsync(tempUri);
 
-  await FileSystem.deleteAsync(tempUri, { idempotent: true });
+  await deleteAsync(tempUri, { idempotent: true });
 
   return asset.uri;
 }
