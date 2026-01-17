@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { ProcessedImage } from '../store/imagesSlice';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { removeImage, updateImageDetailedDescription, reprocessImage } from '../store/imagesSlice';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { OpenAIService } from '../services/openai';
+import { CaptioningService } from '../services/captioning';
+import { RootState } from '../store';
 
 const { width, height } = Dimensions.get('window');
 
@@ -34,6 +35,9 @@ const ImageDetailsScreen: React.FC<ImageDetailsProps> = ({ route, navigation }) 
   const dispatch = useDispatch();
   const styles = createStyles(theme);
   
+  // Get API keys from settings
+  const settings = useSelector((state: RootState) => state.settings);
+  
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isReprocessing, setIsReprocessing] = useState(false);
 
@@ -42,9 +46,14 @@ const ImageDetailsScreen: React.FC<ImageDetailsProps> = ({ route, navigation }) 
     
     setIsGeneratingDescription(true);
     try {
-      const openaiService = new OpenAIService();
-      const detailedDescription = await openaiService.generateImageCaption(image.uri, true);
-      dispatch(updateImageDetailedDescription({ id: image.id, detailedDescription }));
+      // Use CaptioningService with settings API keys (falls back to env)
+      const captioningService = new CaptioningService({
+        preferredProvider: settings.aiProvider || 'gemini',
+        openaiApiKey: settings.openAIApiKey,
+        geminiApiKey: settings.geminiApiKey,
+      });
+      const result = await captioningService.generateCaption(image.uri, true);
+      dispatch(updateImageDetailedDescription({ id: image.id, detailedDescription: result.caption }));
     } catch (error) {
       Alert.alert('Error', 'Failed to generate detailed description. Please try again.');
       console.error('Error generating detailed description:', error);

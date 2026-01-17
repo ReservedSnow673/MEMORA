@@ -2,7 +2,7 @@ import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import * as Device from 'expo-device';
 import { store } from '../store';
-import { createOpenAIService } from './openai';
+import { CaptioningService } from './captioning';
 import ImageMetadataService from './imageMetadata';
 import { addCaption } from '../store/captionsSlice';
 import { Caption } from '../types';
@@ -19,8 +19,8 @@ TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
     const { items: existingCaptions } = state.captions;
 
     // Check if we should run based on settings
-    if (!settings.openAIApiKey || !settings.autoProcessImages) {
-      console.log('Background fetch skipped: Missing API key or auto-processing disabled');
+    if (!settings.autoProcessImages) {
+      console.log('Background fetch skipped: Auto-processing disabled');
       return BackgroundFetch.BackgroundFetchResult.NoData;
     }
 
@@ -51,19 +51,24 @@ TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
 
     console.log(`Processing ${unprocessedImages.length} images in background`);
 
-    const openaiService = createOpenAIService(settings.openAIApiKey);
+    // Use CaptioningService which handles env fallback
+    const captioningService = new CaptioningService({
+      preferredProvider: settings.aiProvider || 'gemini',
+      openaiApiKey: settings.openAIApiKey,
+      geminiApiKey: settings.geminiApiKey,
+    });
     let processedCount = 0;
 
     // Process images one by one to avoid rate limits
     for (const image of unprocessedImages) {
       try {
-        // Generate short caption
-        const shortDescription = await openaiService.generateImageCaption(image.uri, false);
+        // Generate short caption using CaptioningService
+        const result = await captioningService.generateCaption(image.uri, false);
         
         const caption: Caption = {
           id: `bg_caption_${Date.now()}_${Math.random()}`,
           imageId: image.id,
-          shortDescription,
+          shortDescription: result.caption,
           createdAt: Date.now(),
           updatedAt: Date.now(),
           processed: true,

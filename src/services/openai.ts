@@ -1,17 +1,20 @@
 import { OpenAIResponse } from '../types';
 import * as FileSystem from 'expo-file-system';
+import { OPENAI_API_KEY } from '@env';
+
+// Environment variable from .env (undefined if not set)
+const ENV_OPENAI_API_KEY = OPENAI_API_KEY;
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-
-// Default API key - replace with your actual OpenAI API key
-const DEFAULT_OPENAI_API_KEY = '';
 
 export class OpenAIService {
   private apiKey: string;
 
   constructor(userApiKey?: string) {
-    // Use user's API key if provided, otherwise fallback to default
-    this.apiKey = userApiKey && userApiKey.trim() !== '' ? userApiKey : DEFAULT_OPENAI_API_KEY;
+    // Priority: user-provided key > env variable > empty (will fail gracefully)
+    this.apiKey = userApiKey && userApiKey.trim() !== '' 
+      ? userApiKey 
+      : (ENV_OPENAI_API_KEY || '');
   }
 
   async generateImageCaption(
@@ -33,7 +36,7 @@ export class OpenAIService {
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o', // Using the more affordable mini model
+          model: 'gpt-4o',
           messages: [
             {
               role: 'user',
@@ -114,11 +117,11 @@ export const createOpenAIService = (userApiKey?: string) => new OpenAIService(us
 
 // Helper function to check if we have a valid API key
 export const hasValidApiKey = (userApiKey?: string): boolean => {
-  const apiKey = userApiKey && userApiKey.trim() !== '' ? userApiKey : DEFAULT_OPENAI_API_KEY;
-  return apiKey !== 'sk-your-default-openai-api-key-here' && apiKey.startsWith('sk-');
+  const apiKey = userApiKey && userApiKey.trim() !== '' ? userApiKey : (ENV_OPENAI_API_KEY || '');
+  return apiKey !== '' && apiKey.startsWith('sk-');
 };
 
 // Helper function to get the current API key being used
 export const getCurrentApiKey = (userApiKey?: string): string => {
-  return userApiKey && userApiKey.trim() !== '' ? userApiKey : DEFAULT_OPENAI_API_KEY;
+  return userApiKey && userApiKey.trim() !== '' ? userApiKey : (ENV_OPENAI_API_KEY || '');
 };

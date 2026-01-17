@@ -6,13 +6,14 @@ import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { store, persistor } from './src/store';
-import Navigation from './src/navigation/Navigation';
-import { ThemeProvider } from './src/contexts/ThemeContext';
+import ModernNavigation from './src/navigation/ModernNavigation';
+import { ModernThemeProvider } from './src/theme';
+import { ToastProvider } from './src/components/ui';
 
 export default function App() {
   const LoadingComponent = () => (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <ActivityIndicator size="large" color="#007AFF" />
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0D0D0D' }}>
+      <ActivityIndicator size="large" color="#FF6B4A" />
     </View>
   );
 
@@ -20,10 +21,12 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Provider store={store}>
         <PersistGate loading={<LoadingComponent />} persistor={persistor}>
-          <ThemeProvider>
-            <StatusBar style="auto" />
-            <Navigation />
-          </ThemeProvider>
+          <ModernThemeProvider>
+            <ToastProvider>
+              <StatusBar style="light" />
+              <ModernNavigation />
+            </ToastProvider>
+          </ModernThemeProvider>
         </PersistGate>
       </Provider>
     </GestureHandlerRootView>

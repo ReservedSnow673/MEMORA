@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { 
   initializeAuth,
-  getAuth,
+  getReactNativePersistence,
   GoogleAuthProvider, 
   signInWithCredential,
   signOut,
@@ -12,23 +12,32 @@ import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { User } from '../types';
+import {
+  FIREBASE_API_KEY,
+  FIREBASE_AUTH_DOMAIN,
+  FIREBASE_PROJECT_ID,
+  FIREBASE_STORAGE_BUCKET,
+  FIREBASE_MESSAGING_SENDER_ID,
+  FIREBASE_APP_ID,
+} from '@env';
 
-// Firebase configuration - Replace with your actual config
+// Firebase configuration - uses env variables or placeholders
 const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-auth-domain",
-  projectId: "your-project-id",
-  storageBucket: "your-storage-bucket",
-  messagingSenderId: "your-messaging-sender-id",
-  appId: "your-app-id"
+  apiKey: FIREBASE_API_KEY || "your-api-key",
+  authDomain: FIREBASE_AUTH_DOMAIN || "your-auth-domain",
+  projectId: FIREBASE_PROJECT_ID || "your-project-id",
+  storageBucket: FIREBASE_STORAGE_BUCKET || "your-storage-bucket",
+  messagingSenderId: FIREBASE_MESSAGING_SENDER_ID || "your-messaging-sender-id",
+  appId: FIREBASE_APP_ID || "your-app-id"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// For React Native, we'll just use getAuth() which should automatically handle persistence
-// The warning about AsyncStorage is mainly for older Firebase versions
-const auth = getAuth(app);
+// Initialize Auth with AsyncStorage persistence for React Native
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});
 
 WebBrowser.maybeCompleteAuthSession();
 
