@@ -46,11 +46,9 @@ const ImageDetailsScreen: React.FC<ImageDetailsProps> = ({ route, navigation }) 
     
     setIsGeneratingDescription(true);
     try {
-      // Use CaptioningService with settings API keys (falls back to env)
+      // CaptioningService automatically gets API keys from centralized storage
       const captioningService = new CaptioningService({
         preferredProvider: settings.aiProvider || 'gemini',
-        openaiApiKey: settings.openAIApiKey,
-        geminiApiKey: settings.geminiApiKey,
       });
       const result = await captioningService.generateCaption(image.uri, true);
       dispatch(updateImageDetailedDescription({ id: image.id, detailedDescription: result.caption }));

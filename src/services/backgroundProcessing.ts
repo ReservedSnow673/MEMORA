@@ -35,11 +35,9 @@ TaskManager.defineTask(BACKGROUND_PROCESSING_TASK, async () => {
     try {
       store.dispatch(updateImageStatus({ id: imageId, status: 'processing' }));
       
-      // Use CaptioningService which handles env fallback
+      // CaptioningService automatically gets API keys from centralized storage
       const captioningService = new CaptioningService({
         preferredProvider: aiProvider || 'gemini',
-        openaiApiKey: openAIApiKey,
-        geminiApiKey: geminiApiKey,
       });
       const result = await captioningService.generateCaption(image.uri);
       
@@ -116,11 +114,9 @@ export class BackgroundProcessingService {
 
       store.dispatch(setIsProcessing(true));
 
-      // Create CaptioningService which handles env fallback
+      // CaptioningService automatically gets API keys from centralized storage
       const captioningService = new CaptioningService({
         preferredProvider: aiProvider || 'gemini',
-        openaiApiKey: openAIApiKey,
-        geminiApiKey: geminiApiKey,
       });
 
       // Process images one by one

@@ -168,12 +168,11 @@ export class BackgroundScheduler {
 
   /**
    * Update captioning service with current config
+   * CaptioningService automatically gets API keys from centralized storage
    */
   private updateCaptioningService(): void {
     this.captioningService = new CaptioningService({
       preferredProvider: this.config.aiProvider,
-      openaiApiKey: this.config.openaiApiKey,
-      geminiApiKey: this.config.geminiApiKey,
     });
   }
 

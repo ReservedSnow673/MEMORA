@@ -60,11 +60,23 @@ export function getApiKeys(): { openaiApiKey?: string; geminiApiKey?: string } {
   const state = store.getState();
   const settings = state.settings;
   
-  return {
+  const result = {
     // Use Redux settings first, fall back to .env
     openaiApiKey: settings.openAIApiKey || ENV_OPENAI_API_KEY,
     geminiApiKey: settings.geminiApiKey || ENV_GEMINI_API_KEY,
   };
+  
+  // Debug: Log what we're returning
+  console.log('[ApiKeys] getApiKeys called:', {
+    reduxOpenAI: settings.openAIApiKey ? 'SET (' + settings.openAIApiKey.substring(0, 10) + '...)' : 'NOT SET',
+    reduxGemini: settings.geminiApiKey ? 'SET (' + settings.geminiApiKey.substring(0, 10) + '...)' : 'NOT SET',
+    envOpenAI: ENV_OPENAI_API_KEY ? 'SET (' + ENV_OPENAI_API_KEY.substring(0, 10) + '...)' : 'NOT SET',
+    envGemini: ENV_GEMINI_API_KEY ? 'SET (' + ENV_GEMINI_API_KEY.substring(0, 10) + '...)' : 'NOT SET',
+    resultOpenAI: result.openaiApiKey ? 'SET' : 'NOT SET',
+    resultGemini: result.geminiApiKey ? 'SET' : 'NOT SET',
+  });
+  
+  return result;
 }
 
 /**

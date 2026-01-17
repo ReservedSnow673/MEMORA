@@ -59,10 +59,9 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
     setLoading(true);
 
     try {
+      // CaptioningService automatically gets API keys from centralized storage
       const captioningService = new CaptioningService({
         preferredProvider: settings.aiProvider || 'gemini',
-        openaiApiKey: settings.openAIApiKey,
-        geminiApiKey: settings.geminiApiKey,
       });
 
       const result = await captioningService.generateCaption(currentImage.uri, detailed);

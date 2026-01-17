@@ -51,11 +51,9 @@ TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
 
     console.log(`Processing ${unprocessedImages.length} images in background`);
 
-    // Use CaptioningService which handles env fallback
+    // CaptioningService automatically gets API keys from centralized storage
     const captioningService = new CaptioningService({
       preferredProvider: settings.aiProvider || 'gemini',
-      openaiApiKey: settings.openAIApiKey,
-      geminiApiKey: settings.geminiApiKey,
     });
     let processedCount = 0;
 
