@@ -36,7 +36,7 @@ export class OpenAIService {
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-5.2',
+          model: 'gpt-4o',
           messages: [
             {
               role: 'user',
