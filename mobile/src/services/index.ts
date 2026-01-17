@@ -82,3 +82,6 @@ export {
 } from './syncService';
 
 export type { SyncItem, SyncStats, SyncConfig } from './syncService';
+export { firebaseAuthService } from './firebaseAuth';
+
+export type { AuthUser, AuthError } from './firebaseAuth';

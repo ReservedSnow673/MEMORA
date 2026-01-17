@@ -184,8 +184,44 @@ jest.mock('react-native', () => {
     },
   };
 });
+// Mock Firebase
+jest.mock('@react-native-firebase/app', () => ({
+  initializeApp: jest.fn(),
+  firebase: {
+    app: jest.fn(() => ({
+      initializeApp: jest.fn(),
+    })),
+  },
+}));
 
-// Global mocks
-global.fetch = jest.fn();
-global.atob = (str: string) => Buffer.from(str, 'base64').toString('binary');
-global.btoa = (str: string) => Buffer.from(str, 'binary').toString('base64');
+jest.mock('@react-native-firebase/auth', () => {
+  const mockUser = {
+    uid: 'test-uid',
+    email: 'test@example.com',
+    displayName: null,
+    isAnonymous: false,
+    getIdToken: jest.fn(() => Promise.resolve('test-token')),
+    updateProfile: jest.fn(),
+    linkWithCredential: jest.fn(),
+  };
+
+  return {
+    __esModule: true,
+    default: jest.fn(() => ({
+      createUserWithEmailAndPassword: jest.fn().mockResolvedValue({ user: mockUser }),
+      signInWithEmailAndPassword: jest.fn().mockResolvedValue({ user: mockUser }),
+      signInAnonymously: jest.fn().mockResolvedValue({
+        user: { ...mockUser, isAnonymous: true },
+      }),
+      signOut: jest.fn().mockResolvedValue(undefined),
+      onAuthStateChanged: jest.fn((callback) => {
+        callback(mockUser);
+        return jest.fn();
+      }),
+      currentUser: mockUser,
+    })),
+    FirebaseAuthTypes: {},
+  };
+});
+
+

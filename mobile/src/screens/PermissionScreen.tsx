@@ -5,6 +5,7 @@ import { RootStackParamList } from '../navigation';
 import { AccessibleText, AccessibleButton, AccessibleStatus } from '../components';
 import { usePermissionStore } from '../store';
 import { requestPhotoPermission, checkPhotoPermission } from '../services/permissions';
+import { firebaseAuthService } from '../services/firebaseAuth';
 
 type PermissionScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Permission'>;
 
@@ -15,10 +16,31 @@ interface PermissionScreenProps {
 export function PermissionScreen({ navigation }: PermissionScreenProps): React.ReactElement {
   const { photoPermission, setPhotoPermission } = usePermissionStore();
   const [isRequesting, setIsRequesting] = useState(false);
+  const [showAuthOption, setShowAuthOption] = useState(false);
 
   useEffect(() => {
     checkInitialPermission();
+    initializeAuth();
   }, []);
+
+  const initializeAuth = async () => {
+    try {
+      // Check if user is already authenticated
+      const currentUser = firebaseAuthService.getCurrentUser();
+      if (currentUser) {
+        // User already authenticated, continue to permission check
+        return;
+      }
+      // For offline-first usage, sign in anonymously if not authenticated
+      // This allows the app to work without requiring email/password
+      if (!firebaseAuthService.isAuthenticated()) {
+        await firebaseAuthService.signInAnonymously();
+      }
+    } catch (error) {
+      console.error('Failed to initialize auth:', error);
+      // App can still work without authentication for offline use
+    }
+  };
 
   const checkInitialPermission = async () => {
     const status = await checkPhotoPermission();
@@ -93,6 +115,7 @@ export function PermissionScreen({ navigation }: PermissionScreenProps): React.R
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
