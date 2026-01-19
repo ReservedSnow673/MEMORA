@@ -3,12 +3,6 @@
 
 Memora is a **React Native app** that gives photos a voice. It automatically generates captions for images using AI, making them more accessible — especially for visually impaired users. Think of it as your personal photo storyteller that works in the background and never forgets to caption a moment.
 
-## 🎥 Demo & Presentation
-
-🎬 **[Watch Video Demo](https://drive.google.com/drive/folders/1hXjXBNl7EvJdDfkLM8z8z7iN69KsuVNr?usp=sharing)**  
-📊 **[View Pitch Deck (PDF)](./Memora%20Pitch%20Deck.pdf)**  
-📄 **[Download Pitch Deck (PowerPoint)](./Memora%20Pitch%20Deck%20PPT.pptx)**
-
 
 ## ✨ Features  
 
@@ -175,9 +169,6 @@ npm test
 **ReservedSnow673**  
 - GitHub: [@ReservedSnow673](https://github.com/ReservedSnow673)  
 - Project: [Memora](https://github.com/ReservedSnow673/Memora)
-
-**akshiita-m**  
-- GitHub: [@akshiita-m](https://github.com/akshiita-m)
 
 **Pranav435**  
 - GitHub: [@Pranav435](https://github.com/Pranav435)
