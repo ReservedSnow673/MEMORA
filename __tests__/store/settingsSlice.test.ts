@@ -93,7 +93,8 @@ describe('settingsSlice', () => {
     });
   });
 
-  describe('setOpenAIApiKey', () => {
+  // OpenAI temporarily disabled - tests skipped
+  describe.skip('setOpenAIApiKey', () => {
     it('should set API key', () => {
       const result = settingsReducer(initialState, setOpenAIApiKey('sk-test-key'));
       expect(result.openAIApiKey).toBe('sk-test-key');
@@ -147,19 +148,14 @@ describe('settingsSlice', () => {
 
   describe('setAIProvider', () => {
     it('should set provider to gemini', () => {
-      const state = { ...initialState, aiProvider: 'openai' as const };
-      const result = settingsReducer(state, setAIProvider('gemini'));
+      const result = settingsReducer(initialState, setAIProvider('gemini'));
       expect(result.aiProvider).toBe('gemini');
     });
 
-    it('should set provider to openai', () => {
+    // OpenAI temporarily disabled
+    it.skip('should set provider to openai', () => {
       const result = settingsReducer(initialState, setAIProvider('openai'));
       expect(result.aiProvider).toBe('openai');
-    });
-
-    it('should set provider to ondevice', () => {
-      const result = settingsReducer(initialState, setAIProvider('ondevice'));
-      expect(result.aiProvider).toBe('ondevice');
     });
   });
 

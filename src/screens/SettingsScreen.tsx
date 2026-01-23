@@ -321,14 +321,13 @@ export default function SettingsScreen() {
             <Text style={styles.settingLabel}>AI Provider</Text>
             <Text style={styles.settingDescription}>
               {settings.aiProvider === 'gemini' ? 'Google Gemini (Recommended)' :
-               settings.aiProvider === 'openai' ? 'OpenAI GPT-4o' :
-               'On-Device (Offline)'}
+               'OpenAI GPT-4o'}
             </Text>
           </View>
         </View>
         
         <View style={styles.frequencyOptions}>
-          {(['gemini', 'openai', 'ondevice'] as AIProvider[]).map((provider) => (
+          {(['gemini', 'openai'] as AIProvider[]).map((provider) => (
             <TouchableOpacity
               key={provider}
               style={[
@@ -343,10 +342,8 @@ export default function SettingsScreen() {
               ]}>
                 {provider === 'gemini' ? (
                   <><Ionicons name="flash" size={16} /> Gemini</>
-                ) : provider === 'openai' ? (
-                  <><Ionicons name="cloud" size={16} /> OpenAI</>
                 ) : (
-                  <><Ionicons name="phone-portrait" size={16} /> Device</>
+                  <><Ionicons name="cloud" size={16} /> OpenAI</>
                 )}
               </Text>
             </TouchableOpacity>

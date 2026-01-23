@@ -1,8 +1,13 @@
 /**
  * Modern Image Details Screen
  * Redesigned with dark theme and modern card layout
+ * 
+ * Performance optimizations:
+ * - Memoized styles
+ * - useCallback for event handlers
+ * - Abort controller for API calls
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +15,8 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  Pressable,
+  Animated,
   Dimensions,
   Share,
   StatusBar,
@@ -17,6 +24,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { useSelector, useDispatch } from 'react-redux';
 
 import { useModernTheme } from '../theme/ThemeContext';
@@ -26,6 +34,145 @@ import { CaptioningService } from '../services/captioning';
 import { Card, Button, StatusIndicator, useToast, EditModal } from '../components/ui';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Animated icon button with haptic feedback
+interface AnimatedIconButtonProps {
+  iconName: keyof typeof Ionicons.glyphMap;
+  size?: number;
+  color: string;
+  onPress: () => void;
+  style?: any;
+  disabled?: boolean;
+  accessibilityLabel: string;
+  accessibilityHint?: string;
+}
+
+const AnimatedIconButton = ({ 
+  iconName, 
+  size = 24, 
+  color, 
+  onPress, 
+  style, 
+  disabled = false,
+  accessibilityLabel,
+  accessibilityHint
+}: AnimatedIconButtonProps) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.85,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePress = () => {
+    if (!disabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onPress();
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled }}
+      style={style}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Ionicons name={iconName} size={size} color={disabled ? color + '60' : color} />
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+// Image preview with press animation
+interface ImagePreviewProps {
+  currentImage: any;
+  setShowFullImage: (show: boolean) => void;
+  styles: any;
+  theme: any;
+}
+
+const ImagePreview = ({ currentImage, setShowFullImage, styles, theme }: ImagePreviewProps) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowFullImage(true);
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={currentImage.caption || currentImage.filename || 'Photo'}
+      accessibilityHint="Double tap to view fullscreen"
+    >
+      <Animated.View style={[styles.imageContainer, { transform: [{ scale: scaleAnim }] }]}>
+        <Image 
+          source={{ uri: currentImage.uri }} 
+          style={styles.mainImage}
+          resizeMode="cover"
+          accessible={false}
+          importantForAccessibility="no"
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)']}
+          style={styles.imageGradient}
+          importantForAccessibility="no-hide-descendants"
+        />
+        <View style={styles.imageOverlay} importantForAccessibility="no">
+          <View style={styles.statusRow}>
+            <StatusIndicator status={currentImage.status} showLabel />
+          </View>
+          <View style={styles.expandButton}>
+            <Ionicons name="expand-outline" size={20} color="#FFFFFF" />
+          </View>
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+};
 
 interface ImageDetailsScreenProps {
   route: any;
@@ -43,6 +190,10 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
   const [isGeneratingDetailed, setIsGeneratingDetailed] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   
+  // Abort controller for cleanup
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
+  
   // Edit modal states
   const [showCaptionEditModal, setShowCaptionEditModal] = useState(false);
   const [showDescriptionEditModal, setShowDescriptionEditModal] = useState(false);
@@ -52,9 +203,27 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
     state.images.items.find(img => img.id === image.id)
   ) || image;
 
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const generateCaption = async (detailed: boolean = false) => {
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    return () => {
+      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  const generateCaption = useCallback(async (detailed: boolean = false) => {
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    
     const setLoading = detailed ? setIsGeneratingDetailed : setIsGenerating;
     setLoading(true);
 
@@ -65,6 +234,9 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
       });
 
       const result = await captioningService.generateCaption(currentImage.uri, detailed);
+      
+      // Check if component is still mounted
+      if (!isMountedRef.current) return;
 
       if (result.caption) {
         if (detailed) {
@@ -73,35 +245,40 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
           dispatch(updateImageCaption({ id: currentImage.id, caption: result.caption }));
         }
         
-        const providerName = result.provider === 'ondevice' ? 'Memora Vision Lite' : result.provider;
+        const providerName = result.provider === 'gemini' ? 'Google Gemini' : 'OpenAI';
         showToast(`✨ ${detailed ? 'Description' : 'Caption'} generated`, 'success');
       } else {
         showToast(result.error || 'Failed to generate caption', 'error');
       }
     } catch (error) {
-      console.error('Error generating caption:', error);
-      showToast('Failed to generate. Please try again.', 'error');
+      // Only show error if not aborted and still mounted
+      if (isMountedRef.current && !(error instanceof Error && error.name === 'AbortError')) {
+        console.error('Error generating caption:', error);
+        showToast('Failed to generate. Please try again.', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [settings.aiProvider, currentImage.uri, currentImage.id, dispatch, showToast]);
 
-  const copyToClipboard = async (text: string, label: string) => {
+  const copyToClipboard = useCallback(async (text: string, label: string) => {
     await Clipboard.setStringAsync(text);
     showToast(`${label} copied to clipboard`, 'success');
-  };
+  }, [showToast]);
 
-  const handleSaveCaption = (newCaption: string) => {
+  const handleSaveCaption = useCallback((newCaption: string) => {
     dispatch(updateImageCaption({ id: currentImage.id, caption: newCaption }));
     showToast('Caption saved', 'success');
-  };
+  }, [dispatch, currentImage.id, showToast]);
 
-  const handleSaveDescription = (newDescription: string) => {
+  const handleSaveDescription = useCallback((newDescription: string) => {
     dispatch(updateImageDetailedDescription({ id: currentImage.id, detailedDescription: newDescription }));
     showToast('Description saved', 'success');
-  };
+  }, [dispatch, currentImage.id, showToast]);
 
-  const shareImage = async () => {
+  const shareImage = useCallback(async () => {
     try {
       await Share.share({
         message: currentImage.detailedDescription || currentImage.caption || 'Check out this image!',
@@ -110,9 +287,9 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
     } catch (error) {
       console.error('Error sharing:', error);
     }
-  };
+  }, [currentImage.detailedDescription, currentImage.caption, currentImage.uri]);
 
-  const formatDate = (timestamp?: number) => {
+  const formatDate = useCallback((timestamp?: number) => {
     if (!timestamp) return 'Unknown';
     return new Date(timestamp).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -120,27 +297,41 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
       month: 'long',
       day: 'numeric',
     });
-  };
+  }, []);
+
+  const handleGoBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  const toggleFullImage = useCallback(() => {
+    setShowFullImage(prev => !prev);
+  }, []);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
       {/* Header with back button */}
-      <View style={styles.header}>
-        <TouchableOpacity 
+      <View style={styles.header} accessibilityRole="header">
+        <AnimatedIconButton
+          iconName="arrow-back"
+          size={24}
+          color={theme.colors.textPrimary}
+          onPress={handleGoBack}
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
-        </TouchableOpacity>
+          accessibilityLabel="Go back"
+          accessibilityHint="Returns to previous screen"
+        />
         <Text style={styles.headerTitle}>Image Details</Text>
-        <TouchableOpacity 
-          style={styles.shareButton}
+        <AnimatedIconButton
+          iconName="share-outline"
+          size={24}
+          color={theme.colors.textPrimary}
           onPress={shareImage}
-        >
-          <Ionicons name="share-outline" size={24} color={theme.colors.textPrimary} />
-        </TouchableOpacity>
+          style={styles.shareButton}
+          accessibilityLabel="Share image"
+          accessibilityHint="Opens share sheet to share this image"
+        />
       </View>
 
       <ScrollView 
@@ -148,33 +339,16 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Image Preview */}
-        <TouchableOpacity 
-          style={styles.imageContainer}
-          onPress={() => setShowFullImage(true)}
-          activeOpacity={0.9}
-        >
-          <Image 
-            source={{ uri: currentImage.uri }} 
-            style={styles.mainImage}
-            resizeMode="cover"
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.imageGradient}
-          />
-          <View style={styles.imageOverlay}>
-            <View style={styles.statusRow}>
-              <StatusIndicator status={currentImage.status} showLabel />
-            </View>
-            <TouchableOpacity style={styles.expandButton}>
-              <Ionicons name="expand-outline" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
+        {/* Image Preview with press animation */}
+        <ImagePreview 
+          currentImage={currentImage}
+          setShowFullImage={setShowFullImage}
+          styles={styles}
+          theme={theme}
+        />
 
         {/* Quick Actions */}
-        <View style={styles.quickActions}>
+        <View style={styles.quickActions} accessible={false}>
           <Button
             title={isGenerating ? 'Generating...' : 'Quick Caption'}
             icon="flash"
@@ -201,40 +375,44 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
               <Text style={styles.cardTitle}>Quick Caption</Text>
             </View>
             <View style={styles.cardActions}>
-              <TouchableOpacity 
-                style={styles.cardActionButton}
+              <AnimatedIconButton
+                iconName="create-outline"
+                size={18}
+                color={theme.colors.textSecondary}
                 onPress={() => setShowCaptionEditModal(true)}
-              >
-                <Ionicons name="create-outline" size={18} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity 
                 style={styles.cardActionButton}
+                accessibilityLabel="Edit caption"
+              />
+              <AnimatedIconButton
+                iconName="refresh-outline"
+                size={18}
+                color={isGenerating ? theme.colors.textTertiary : theme.colors.textSecondary}
                 onPress={() => generateCaption(false)}
                 disabled={isGenerating}
-              >
-                <Ionicons 
-                  name="refresh-outline" 
-                  size={18} 
-                  color={isGenerating ? theme.colors.textTertiary : theme.colors.textSecondary} 
-                />
-              </TouchableOpacity>
+                style={styles.cardActionButton}
+                accessibilityLabel="Regenerate caption"
+              />
               {currentImage.caption && (
-                <TouchableOpacity 
-                  style={styles.cardActionButton}
+                <AnimatedIconButton
+                  iconName="copy-outline"
+                  size={18}
+                  color={theme.colors.textSecondary}
                   onPress={() => copyToClipboard(currentImage.caption!, 'Caption')}
-                >
-                  <Ionicons name="copy-outline" size={18} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
+                  style={styles.cardActionButton}
+                  accessibilityLabel="Copy caption to clipboard"
+                />
               )}
             </View>
           </View>
           
           {currentImage.caption ? (
-            <Text style={styles.captionText}>{currentImage.caption}</Text>
+            <Text style={styles.captionText} accessible={true} accessibilityRole="text">
+              {currentImage.caption}
+            </Text>
           ) : (
             <View style={styles.emptyCaption}>
               <Ionicons name="sparkles-outline" size={24} color={theme.colors.textTertiary} />
-              <Text style={styles.emptyCaptionText}>
+              <Text style={styles.emptyCaptionText} accessible={true}>
                 No caption yet. Tap "Quick Caption" to generate or ✏️ to add manually.
               </Text>
             </View>
@@ -249,30 +427,32 @@ export default function ImageDetailsScreen({ route, navigation }: ImageDetailsSc
               <Text style={styles.cardTitle}>Detailed Description</Text>
             </View>
             <View style={styles.cardActions}>
-              <TouchableOpacity 
-                style={styles.cardActionButton}
+              <AnimatedIconButton
+                iconName="create-outline"
+                size={18}
+                color={theme.colors.textSecondary}
                 onPress={() => setShowDescriptionEditModal(true)}
-              >
-                <Ionicons name="create-outline" size={18} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity 
                 style={styles.cardActionButton}
+                accessibilityLabel="Edit detailed description"
+              />
+              <AnimatedIconButton
+                iconName="refresh-outline"
+                size={18}
+                color={isGeneratingDetailed ? theme.colors.textTertiary : theme.colors.textSecondary}
                 onPress={() => generateCaption(true)}
                 disabled={isGeneratingDetailed}
-              >
-                <Ionicons 
-                  name="refresh-outline" 
-                  size={18} 
-                  color={isGeneratingDetailed ? theme.colors.textTertiary : theme.colors.textSecondary} 
-                />
-              </TouchableOpacity>
+                style={styles.cardActionButton}
+                accessibilityLabel="Regenerate detailed description"
+              />
               {currentImage.detailedDescription && (
-                <TouchableOpacity 
-                  style={styles.cardActionButton}
+                <AnimatedIconButton
+                  iconName="copy-outline"
+                  size={18}
+                  color={theme.colors.textSecondary}
                   onPress={() => copyToClipboard(currentImage.detailedDescription!, 'Description')}
-                >
-                  <Ionicons name="copy-outline" size={18} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
+                  style={styles.cardActionButton}
+                  accessibilityLabel="Copy description to clipboard"
+                />
               )}
             </View>
           </View>

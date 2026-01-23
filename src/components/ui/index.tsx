@@ -1,6 +1,7 @@
 /**
  * Modern UI Components Library
  * Inspired by fitness app design with cards, buttons, badges
+ * WCAG 2.1 AA Compliant - Accessible UI Components
  */
 import React, { ReactNode, useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
 import {
@@ -17,10 +18,42 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  AccessibilityInfo,
+  Pressable,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useModernTheme, ModernTheme } from '../../theme';
+import * as Haptics from 'expo-haptics';
+
+// Minimum touch target size for WCAG 2.1 AA compliance
+const MIN_TOUCH_TARGET = 44;
+
+// Haptic feedback helper
+const triggerHaptic = (type: 'light' | 'medium' | 'success' | 'warning' | 'error' = 'light') => {
+  try {
+    switch (type) {
+      case 'light':
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        break;
+      case 'medium':
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        break;
+      case 'success':
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        break;
+      case 'warning':
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        break;
+      case 'error':
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        break;
+    }
+  } catch (e) {
+    // Haptics not available
+  }
+};
 
 // ============= TOAST SYSTEM =============
 type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -50,34 +83,61 @@ const ToastItem: React.FC<{ toast: ToastMessage; onHide: () => void }> = ({ toas
   const { theme } = useModernTheme();
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-20)).current;
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+  }, []);
+
+  useEffect(() => {
+    const duration = reduceMotion ? 0 : 300;
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.spring(opacity, { 
+        toValue: 1, 
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }),
+      Animated.spring(translateY, { 
+        toValue: 0, 
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }),
     ]).start();
+    
+    // Haptic feedback for toast
+    if (toast.type === 'success') triggerHaptic('success');
+    else if (toast.type === 'error') triggerHaptic('error');
+    else if (toast.type === 'warning') triggerHaptic('warning');
+    else triggerHaptic('light');
 
     const hideTimer = setTimeout(() => {
+      const hideDuration = reduceMotion ? 0 : 200;
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: -20, duration: 200, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: hideDuration, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: -20, duration: hideDuration, useNativeDriver: true }),
       ]).start(onHide);
     }, toast.duration || 3000);
 
     return () => clearTimeout(hideTimer);
-  }, []);
+  }, [reduceMotion]);
 
   const config = {
-    success: { icon: 'checkmark-circle' as const, bg: theme.colors.success, color: '#FFFFFF' },
-    error: { icon: 'close-circle' as const, bg: theme.colors.error, color: '#FFFFFF' },
-    warning: { icon: 'warning' as const, bg: theme.colors.warning, color: '#000000' },
-    info: { icon: 'information-circle' as const, bg: theme.colors.info, color: '#FFFFFF' },
+    success: { icon: 'checkmark-circle' as const, bg: theme.colors.success, color: '#FFFFFF', role: 'Success' },
+    error: { icon: 'close-circle' as const, bg: theme.colors.error, color: '#FFFFFF', role: 'Error' },
+    warning: { icon: 'warning' as const, bg: theme.colors.warning, color: '#000000', role: 'Warning' },
+    info: { icon: 'information-circle' as const, bg: theme.colors.info, color: '#FFFFFF', role: 'Information' },
   };
 
-  const { icon, bg, color } = config[toast.type];
+  const { icon, bg, color, role } = config[toast.type];
 
   return (
     <Animated.View
+      accessible={true}
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      accessibilityLabel={`${role}: ${toast.message}`}
       style={{
         opacity,
         transform: [{ translateY }],
@@ -94,11 +154,25 @@ const ToastItem: React.FC<{ toast: ToastMessage; onHide: () => void }> = ({ toas
         shadowRadius: 8,
         elevation: 5,
         gap: 10,
+        minHeight: MIN_TOUCH_TARGET,
       }}
     >
-      <Ionicons name={icon} size={22} color={color} />
-      <Text style={{ flex: 1, color, fontSize: 15, fontWeight: '500' }}>{toast.message}</Text>
-      <TouchableOpacity onPress={onHide}>
+      <Ionicons name={icon} size={22} color={color} accessibilityElementsHidden={true} />
+      <Text 
+        style={{ flex: 1, color, fontSize: 15, fontWeight: '500' }}
+        accessibilityElementsHidden={true}
+      >
+        {toast.message}
+      </Text>
+      <TouchableOpacity 
+        onPress={onHide}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss notification"
+        accessibilityHint="Double tap to dismiss this notification"
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={{ minWidth: MIN_TOUCH_TARGET, minHeight: MIN_TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}
+      >
         <Ionicons name="close" size={18} color={color} />
       </TouchableOpacity>
     </Animated.View>
@@ -172,8 +246,16 @@ export const EditModal: React.FC<EditModalProps> = ({
     onClose();
   };
 
+  const charactersRemaining = maxLength - editValue.length;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal 
+      visible={visible} 
+      animationType="slide" 
+      transparent
+      accessibilityViewIsModal={true}
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -184,6 +266,7 @@ export const EditModal: React.FC<EditModalProps> = ({
             backgroundColor: 'rgba(0,0,0,0.7)',
             justifyContent: 'flex-end',
           }}
+          accessible={false}
         >
           <View
             style={{
@@ -195,6 +278,9 @@ export const EditModal: React.FC<EditModalProps> = ({
               paddingBottom: 40,
               maxHeight: '80%',
             }}
+            accessible={true}
+            accessibilityRole="none"
+            accessibilityLabel={`${title} editor`}
           >
             {/* Header */}
             <View
@@ -211,10 +297,19 @@ export const EditModal: React.FC<EditModalProps> = ({
                   fontWeight: '700',
                   color: theme.colors.textPrimary,
                 }}
+                accessible={true}
+                accessibilityRole="header"
               >
                 {title}
               </Text>
-              <TouchableOpacity onPress={onClose}>
+              <TouchableOpacity 
+                onPress={onClose}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Close editor"
+                accessibilityHint="Double tap to close without saving"
+                style={{ minWidth: MIN_TOUCH_TARGET, minHeight: MIN_TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}
+              >
                 <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -227,6 +322,10 @@ export const EditModal: React.FC<EditModalProps> = ({
               placeholderTextColor={theme.colors.textTertiary}
               multiline={multiline}
               maxLength={maxLength}
+              accessible={true}
+              accessibilityLabel={`${title} input field`}
+              accessibilityHint={`Enter your ${title.toLowerCase()}. ${charactersRemaining} characters remaining`}
+              accessibilityValue={{ text: editValue || 'Empty' }}
               style={{
                 backgroundColor: theme.colors.surfaceSecondary,
                 borderRadius: 16,
@@ -240,14 +339,17 @@ export const EditModal: React.FC<EditModalProps> = ({
               }}
             />
 
-            {/* Character count */}
+            {/* Character count - accessible */}
             <Text
               style={{
                 fontSize: 12,
-                color: theme.colors.textTertiary,
+                color: charactersRemaining < 50 ? theme.colors.warning : theme.colors.textTertiary,
                 textAlign: 'right',
                 marginBottom: 20,
               }}
+              accessible={true}
+              accessibilityLabel={`${editValue.length} of ${maxLength} characters used, ${charactersRemaining} remaining`}
+              accessibilityLiveRegion="polite"
             >
               {editValue.length}/{maxLength}
             </Text>
@@ -259,12 +361,14 @@ export const EditModal: React.FC<EditModalProps> = ({
                 onPress={onClose}
                 variant="secondary"
                 style={{ flex: 1 }}
+                accessibilityHint="Double tap to close without saving changes"
               />
               <Button
                 title="Save"
                 onPress={handleSave}
                 variant="primary"
                 style={{ flex: 1 }}
+                accessibilityHint="Double tap to save your changes"
               />
             </View>
           </View>
@@ -282,23 +386,74 @@ interface CardProps {
   style?: ViewStyle | ViewStyle[];
   variant?: 'default' | 'elevated' | 'outlined';
   onPress?: () => void;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityRole?: 'button' | 'none';
 }
 
-export const Card: React.FC<CardProps> = ({ children, style, variant = 'default', onPress }) => {
+export const Card: React.FC<CardProps> = ({ 
+  children, 
+  style, 
+  variant = 'default', 
+  onPress,
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityRole,
+}) => {
   const { theme } = useModernTheme();
   const styles = createCardStyles(theme, variant);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
 
   const content = <View style={[styles.card, style]}>{children}</View>;
 
   if (onPress) {
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-        {content}
-      </TouchableOpacity>
+      <Pressable 
+        onPress={() => {
+          triggerHaptic('light');
+          onPress();
+        }}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        accessible={true}
+        accessibilityRole={accessibilityRole || "button"}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+      >
+        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          {content}
+        </Animated.View>
+      </Pressable>
     );
   }
 
-  return content;
+  return (
+    <View 
+      accessible={!!accessibilityLabel}
+      accessibilityRole={accessibilityRole || "none"}
+      accessibilityLabel={accessibilityLabel}
+    >
+      {content}
+    </View>
+  );
 };
 
 const createCardStyles = (theme: ModernTheme, variant: string) =>
@@ -325,6 +480,8 @@ interface ButtonProps {
   disabled?: boolean;
   fullWidth?: boolean;
   style?: ViewStyle;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -338,62 +495,126 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   fullWidth = false,
   style,
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
   const { theme } = useModernTheme();
   const styles = createButtonStyles(theme, variant, size, fullWidth, disabled);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const iconSize = size === 'sm' ? 16 : size === 'lg' ? 24 : 20;
+  
+  // Ensure minimum touch target height for WCAG compliance
+  const minHeight = Math.max(size === 'sm' ? 36 : size === 'lg' ? 52 : MIN_TOUCH_TARGET, MIN_TOUCH_TARGET);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePress = () => {
+    triggerHaptic(variant === 'primary' ? 'medium' : 'light');
+    onPress();
+  };
+
+  const getAccessibilityState = () => {
+    const state: { disabled?: boolean; busy?: boolean } = {};
+    if (disabled) state.disabled = true;
+    if (loading) state.busy = true;
+    return state;
+  };
 
   const renderContent = () => (
     <>
       {loading ? (
         <ActivityIndicator 
           color={variant === 'primary' ? theme.colors.textInverse : theme.colors.accent} 
-          size="small" 
+          size="small"
+          accessibilityElementsHidden={true}
         />
       ) : (
         <>
           {icon && iconPosition === 'left' && (
-            <Ionicons name={icon} size={iconSize} color={styles.text.color as string} style={{ marginRight: 8 }} />
+            <Ionicons 
+              name={icon} 
+              size={iconSize} 
+              color={styles.text.color as string} 
+              style={{ marginRight: 8 }}
+              accessibilityElementsHidden={true}
+            />
           )}
-          <Text style={styles.text}>{title}</Text>
+          <Text style={styles.text} accessibilityElementsHidden={true}>{title}</Text>
           {icon && iconPosition === 'right' && (
-            <Ionicons name={icon} size={iconSize} color={styles.text.color as string} style={{ marginLeft: 8 }} />
+            <Ionicons 
+              name={icon} 
+              size={iconSize} 
+              color={styles.text.color as string} 
+              style={{ marginLeft: 8 }}
+              accessibilityElementsHidden={true}
+            />
           )}
         </>
       )}
     </>
   );
 
+  const accessibilityProps = {
+    accessible: true,
+    accessibilityRole: 'button' as const,
+    accessibilityLabel: accessibilityLabel || (loading ? `${title}, loading` : title),
+    accessibilityHint: accessibilityHint,
+    accessibilityState: getAccessibilityState(),
+  };
+
   if (variant === 'primary') {
     return (
-      <TouchableOpacity
-        onPress={onPress}
+      <Pressable
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         disabled={disabled || loading}
-        activeOpacity={0.8}
         style={style}
+        {...accessibilityProps}
       >
-        <LinearGradient
-          colors={[theme.colors.accentGradientStart, theme.colors.accentGradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.button}
-        >
-          {renderContent()}
-        </LinearGradient>
-      </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          <LinearGradient
+            colors={disabled ? [theme.colors.surfaceSecondary, theme.colors.surfaceSecondary] : [theme.colors.accentGradientStart, theme.colors.accentGradientEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.button, { minHeight }]}
+          >
+            {renderContent()}
+          </LinearGradient>
+        </Animated.View>
+      </Pressable>
     );
   }
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
+    <Pressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       disabled={disabled || loading}
-      activeOpacity={0.7}
-      style={[styles.button, style]}
+      {...accessibilityProps}
     >
-      {renderContent()}
-    </TouchableOpacity>
+      <Animated.View style={[styles.button, { minHeight, transform: [{ scale: scaleAnim }] }, style]}>
+        {renderContent()}
+      </Animated.View>
+    </Pressable>
   );
 };
 
@@ -464,16 +685,51 @@ interface BadgeProps {
   icon?: keyof typeof Ionicons.glyphMap;
   variant?: 'success' | 'warning' | 'error' | 'info' | 'default';
   size?: 'sm' | 'md';
+  accessibilityLabel?: string;
 }
 
-export const Badge: React.FC<BadgeProps> = ({ label, icon, variant = 'default', size = 'md' }) => {
+export const Badge: React.FC<BadgeProps> = ({ 
+  label, 
+  icon, 
+  variant = 'default', 
+  size = 'md',
+  accessibilityLabel,
+}) => {
   const { theme } = useModernTheme();
   const styles = createBadgeStyles(theme, variant, size);
 
+  const getVariantLabel = () => {
+    switch (variant) {
+      case 'success': return 'Success';
+      case 'warning': return 'Warning';
+      case 'error': return 'Error';
+      case 'info': return 'Information';
+      default: return '';
+    }
+  };
+
+  const computedLabel = accessibilityLabel || `${getVariantLabel()} ${label || ''}`.trim();
+
   return (
-    <View style={styles.badge}>
-      {icon && <Ionicons name={icon} size={size === 'sm' ? 10 : 12} color={styles.text.color as string} />}
-      {label && <Text style={styles.text}>{label}</Text>}
+    <View 
+      style={styles.badge}
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={computedLabel}
+    >
+      {icon && (
+        <Ionicons 
+          name={icon} 
+          size={size === 'sm' ? 10 : 12} 
+          color={styles.text.color as string}
+          accessibilityElementsHidden={true}
+        />
+      )}
+      {label && (
+        <Text style={styles.text} accessibilityElementsHidden={true}>
+          {label}
+        </Text>
+      )}
     </View>
   );
 };
@@ -520,22 +776,57 @@ const createBadgeStyles = (theme: ModernTheme, variant: string, size: string) =>
 interface StatusIndicatorProps {
   status: 'processed' | 'processing' | 'unprocessed' | 'error';
   showLabel?: boolean;
+  accessible?: boolean;
 }
 
-export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, showLabel = false }) => {
+export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, showLabel = false, accessible = true }) => {
   const { theme } = useModernTheme();
 
   const config = {
-    processed: { icon: 'checkmark-circle' as const, color: theme.colors.success, label: 'Processed' },
-    processing: { icon: 'time' as const, color: theme.colors.warning, label: 'Processing' },
-    unprocessed: { icon: 'ellipse-outline' as const, color: theme.colors.textTertiary, label: 'Pending' },
-    error: { icon: 'close-circle' as const, color: theme.colors.error, label: 'Error' },
+    processed: { icon: 'checkmark-circle' as const, color: theme.colors.success, label: 'Processed', description: 'Image has been processed successfully' },
+    processing: { icon: 'time' as const, color: theme.colors.warning, label: 'Processing', description: 'Image is currently being processed' },
+    unprocessed: { icon: 'ellipse-outline' as const, color: theme.colors.textTertiary, label: 'Pending', description: 'Image is waiting to be processed' },
+    error: { icon: 'close-circle' as const, color: theme.colors.error, label: 'Error', description: 'There was an error processing this image' },
   };
 
-  const { icon, color, label } = config[status] || config.unprocessed;
+  const { icon, color, label, description } = config[status] || config.unprocessed;
+
+  // When not accessible, completely hide from screen readers
+  if (!accessible) {
+    return (
+      <View 
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+      >
+        <View
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            backgroundColor: `${color}20`,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name={icon} size={14} color={color} />
+        </View>
+        {showLabel && (
+          <Text style={{ fontSize: 12, color, fontWeight: '500' }}>
+            {label}
+          </Text>
+        )}
+      </View>
+    );
+  }
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+    <View 
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={`Status: ${label}. ${description}`}
+    >
       <View
         style={{
           width: 24,
@@ -545,11 +836,17 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, showLa
           alignItems: 'center',
           justifyContent: 'center',
         }}
+        accessibilityElementsHidden={true}
       >
         <Ionicons name={icon} size={14} color={color} />
       </View>
       {showLabel && (
-        <Text style={{ fontSize: 12, color, fontWeight: '500' }}>{label}</Text>
+        <Text 
+          style={{ fontSize: 12, color, fontWeight: '500' }}
+          accessibilityElementsHidden={true}
+        >
+          {label}
+        </Text>
       )}
     </View>
   );
@@ -562,20 +859,30 @@ interface SectionHeaderProps {
   action?: {
     label: string;
     onPress: () => void;
+    accessibilityHint?: string;
   };
+  headingLevel?: 1 | 2 | 3;
 }
 
-export const SectionHeader: React.FC<SectionHeaderProps> = ({ title, subtitle, action }) => {
+export const SectionHeader: React.FC<SectionHeaderProps> = ({ 
+  title, 
+  subtitle, 
+  action,
+  headingLevel = 2,
+}) => {
   const { theme } = useModernTheme();
 
   return (
-    <View style={{ 
-      flexDirection: 'row', 
-      justifyContent: 'space-between', 
-      alignItems: 'center',
-      marginBottom: theme.spacing.md,
-    }}>
-      <View>
+    <View 
+      style={{ 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: theme.spacing.md,
+      }}
+      accessible={false}
+    >
+      <View accessible={true} accessibilityRole="header">
         <Text style={{ 
           fontSize: theme.typography.fontSize.xl, 
           fontWeight: '700', 
@@ -594,7 +901,20 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({ title, subtitle, a
         )}
       </View>
       {action && (
-        <TouchableOpacity onPress={action.onPress}>
+        <TouchableOpacity 
+          onPress={action.onPress}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={action.label}
+          accessibilityHint={action.accessibilityHint || `Double tap to ${action.label.toLowerCase()}`}
+          style={{ 
+            minHeight: MIN_TOUCH_TARGET, 
+            minWidth: MIN_TOUCH_TARGET,
+            justifyContent: 'center',
+            alignItems: 'flex-end',
+            paddingLeft: 12,
+          }}
+        >
           <Text style={{ 
             fontSize: theme.typography.fontSize.md, 
             fontWeight: '600', 
@@ -617,13 +937,32 @@ interface StatCardProps {
     value: number;
     isPositive: boolean;
   };
+  accessibilityLabel?: string;
 }
 
-export const StatCard: React.FC<StatCardProps> = ({ icon, value, label, trend }) => {
+export const StatCard: React.FC<StatCardProps> = ({ 
+  icon, 
+  value, 
+  label, 
+  trend,
+  accessibilityLabel,
+}) => {
   const { theme } = useModernTheme();
 
+  const getTrendDescription = () => {
+    if (!trend) return '';
+    return `${trend.isPositive ? 'Increased' : 'Decreased'} by ${trend.value} percent`;
+  };
+
+  const computedLabel = accessibilityLabel || `${label}: ${value}. ${getTrendDescription()}`.trim();
+
   return (
-    <Card variant="elevated" style={{ minWidth: 100, alignItems: 'center' }}>
+    <Card 
+      variant="elevated" 
+      style={{ minWidth: 100, alignItems: 'center' }}
+      accessibilityLabel={computedLabel}
+      accessibilityRole="none"
+    >
       <View
         style={{
           width: 40,
@@ -634,25 +973,35 @@ export const StatCard: React.FC<StatCardProps> = ({ icon, value, label, trend })
           justifyContent: 'center',
           marginBottom: theme.spacing.sm,
         }}
+        accessibilityElementsHidden={true}
       >
         <Ionicons name={icon} size={20} color={theme.colors.accent} />
       </View>
-      <Text style={{ 
-        fontSize: theme.typography.fontSize.xxl, 
-        fontWeight: '700', 
-        color: theme.colors.textPrimary,
-      }}>
+      <Text 
+        style={{ 
+          fontSize: theme.typography.fontSize.xxl, 
+          fontWeight: '700', 
+          color: theme.colors.textPrimary,
+        }}
+        accessibilityElementsHidden={true}
+      >
         {value}
       </Text>
-      <Text style={{ 
-        fontSize: theme.typography.fontSize.sm, 
-        color: theme.colors.textSecondary,
-        marginTop: 2,
-      }}>
+      <Text 
+        style={{ 
+          fontSize: theme.typography.fontSize.sm, 
+          color: theme.colors.textSecondary,
+          marginTop: 2,
+        }}
+        accessibilityElementsHidden={true}
+      >
         {label}
       </Text>
       {trend && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+        <View 
+          style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
+          accessibilityElementsHidden={true}
+        >
           <Ionicons 
             name={trend.isPositive ? 'arrow-up' : 'arrow-down'} 
             size={12} 
@@ -678,68 +1027,94 @@ interface ToggleRowProps {
   subtitle?: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
+  accessibilityHint?: string;
 }
 
-export const ToggleRow: React.FC<ToggleRowProps> = ({ icon, title, subtitle, value, onValueChange }) => {
+export const ToggleRow: React.FC<ToggleRowProps> = ({ 
+  icon, 
+  title, 
+  subtitle, 
+  value, 
+  onValueChange,
+  accessibilityHint,
+}) => {
   const { theme } = useModernTheme();
 
+  const handleValueChange = (newValue: boolean) => {
+    // Haptic feedback on toggle
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onValueChange(newValue);
+  };
+
   return (
-    <View style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: theme.spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
-    }}>
-      <View style={{
-        width: 40,
-        height: 40,
-        borderRadius: 10,
-        backgroundColor: theme.colors.surfaceSecondary,
+    <View 
+      style={{
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: theme.spacing.md,
-      }}>
+        paddingVertical: theme.spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+        minHeight: 60, // Ensure adequate spacing
+      }}
+      accessible={false}
+    >
+      <View 
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 10,
+          backgroundColor: theme.colors.surfaceSecondary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: theme.spacing.md,
+        }}
+        accessibilityElementsHidden={true}
+      >
         <Ionicons name={icon} size={20} color={theme.colors.accent} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ 
-          fontSize: theme.typography.fontSize.lg, 
-          fontWeight: '500', 
-          color: theme.colors.textPrimary 
-        }}>
+      <View style={{ flex: 1 }} accessible={false}>
+        <Text 
+          style={{ 
+            fontSize: theme.typography.fontSize.lg, 
+            fontWeight: '500', 
+            color: theme.colors.textPrimary 
+          }}
+          accessibilityElementsHidden={true}
+        >
           {title}
         </Text>
         {subtitle && (
-          <Text style={{ 
-            fontSize: theme.typography.fontSize.sm, 
-            color: theme.colors.textSecondary,
-            marginTop: 2,
-          }}>
+          <Text 
+            style={{ 
+              fontSize: theme.typography.fontSize.sm, 
+              color: theme.colors.textSecondary,
+              marginTop: 2,
+            }}
+            accessibilityElementsHidden={true}
+          >
             {subtitle}
           </Text>
         )}
       </View>
-      <TouchableOpacity
-        onPress={() => onValueChange(!value)}
-        activeOpacity={0.8}
-        style={{
-          width: 52,
-          height: 32,
-          borderRadius: 16,
-          backgroundColor: value ? theme.colors.accent : theme.colors.surfaceSecondary,
-          justifyContent: 'center',
-          padding: 2,
+      {/* Using native Switch for better accessibility support */}
+      <Switch
+        value={value}
+        onValueChange={handleValueChange}
+        trackColor={{ 
+          false: theme.colors.surfaceSecondary, 
+          true: theme.colors.accent 
         }}
-      >
-        <View style={{
-          width: 28,
-          height: 28,
-          borderRadius: 14,
-          backgroundColor: theme.colors.textPrimary,
-          alignSelf: value ? 'flex-end' : 'flex-start',
-        }} />
-      </TouchableOpacity>
+        thumbColor={theme.colors.textPrimary}
+        ios_backgroundColor={theme.colors.surfaceSecondary}
+        accessible={true}
+        accessibilityRole="switch"
+        accessibilityLabel={`${title}${subtitle ? `, ${subtitle}` : ''}`}
+        accessibilityState={{ checked: value }}
+        accessibilityHint={accessibilityHint || `Double tap to ${value ? 'disable' : 'enable'} ${title.toLowerCase()}`}
+        style={{
+          transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }], // Slightly larger for touch
+        }}
+      />
     </View>
   );
 };
@@ -752,6 +1127,7 @@ interface EmptyStateProps {
   action?: {
     label: string;
     onPress: () => void;
+    accessibilityHint?: string;
   };
 }
 
@@ -759,46 +1135,61 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, subtitle, a
   const { theme } = useModernTheme();
 
   return (
-    <View style={{ 
-      flex: 1, 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      padding: theme.spacing.xl,
-    }}>
-      <View style={{
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: theme.colors.surfaceSecondary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: theme.spacing.lg,
-      }}>
+    <View 
+      style={{ 
+        flex: 1, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        padding: theme.spacing.xl,
+      }}
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={`${title}. ${subtitle}`}
+    >
+      <View 
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: 40,
+          backgroundColor: theme.colors.surfaceSecondary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: theme.spacing.lg,
+        }}
+        accessibilityElementsHidden={true}
+      >
         <Ionicons name={icon} size={40} color={theme.colors.textTertiary} />
       </View>
-      <Text style={{ 
-        fontSize: theme.typography.fontSize.xl, 
-        fontWeight: '700', 
-        color: theme.colors.textPrimary,
-        textAlign: 'center',
-        marginBottom: theme.spacing.sm,
-      }}>
+      <Text 
+        style={{ 
+          fontSize: theme.typography.fontSize.xl, 
+          fontWeight: '700', 
+          color: theme.colors.textPrimary,
+          textAlign: 'center',
+          marginBottom: theme.spacing.sm,
+        }}
+        accessibilityElementsHidden={true}
+      >
         {title}
       </Text>
-      <Text style={{ 
-        fontSize: theme.typography.fontSize.md, 
-        color: theme.colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: theme.spacing.lg,
-      }}>
+      <Text 
+        style={{ 
+          fontSize: theme.typography.fontSize.md, 
+          color: theme.colors.textSecondary,
+          textAlign: 'center',
+          lineHeight: 22,
+          marginBottom: theme.spacing.lg,
+        }}
+        accessibilityElementsHidden={true}
+      >
         {subtitle}
       </Text>
       {action && (
         <Button 
           title={action.label} 
           onPress={action.onPress} 
-          icon="add-circle-outline" 
+          icon="add-circle-outline"
+          accessibilityHint={action.accessibilityHint || `Double tap to ${action.label.toLowerCase()}`}
         />
       )}
     </View>
@@ -811,6 +1202,7 @@ interface ProgressRingProps {
   size?: number;
   strokeWidth?: number;
   showPercentage?: boolean;
+  accessibilityLabel?: string;
 }
 
 export const ProgressRing: React.FC<ProgressRingProps> = ({ 
@@ -818,44 +1210,259 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   size = 60, 
   strokeWidth = 6,
   showPercentage = true,
+  accessibilityLabel,
 }) => {
   const { theme } = useModernTheme();
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
+  
+  const roundedProgress = Math.round(progress);
+  const computedLabel = accessibilityLabel || `Progress: ${roundedProgress} percent complete`;
 
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ 
-        position: 'absolute',
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: strokeWidth,
-        borderColor: theme.colors.surfaceSecondary,
-      }} />
-      <View style={{ 
-        position: 'absolute',
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: strokeWidth,
-        borderColor: theme.colors.accent,
-        borderLeftColor: 'transparent',
-        borderBottomColor: progress > 25 ? theme.colors.accent : 'transparent',
-        borderRightColor: progress > 50 ? theme.colors.accent : 'transparent',
-        borderTopColor: progress > 75 ? theme.colors.accent : 'transparent',
-        transform: [{ rotate: '-90deg' }],
-      }} />
+    <View 
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+      accessible={true}
+      accessibilityRole="progressbar"
+      accessibilityLabel={computedLabel}
+      accessibilityValue={{ min: 0, max: 100, now: roundedProgress }}
+    >
+      <View 
+        style={{ 
+          position: 'absolute',
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: strokeWidth,
+          borderColor: theme.colors.surfaceSecondary,
+        }}
+        accessibilityElementsHidden={true}
+      />
+      <View 
+        style={{ 
+          position: 'absolute',
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: strokeWidth,
+          borderColor: theme.colors.accent,
+          borderLeftColor: 'transparent',
+          borderBottomColor: progress > 25 ? theme.colors.accent : 'transparent',
+          borderRightColor: progress > 50 ? theme.colors.accent : 'transparent',
+          borderTopColor: progress > 75 ? theme.colors.accent : 'transparent',
+          transform: [{ rotate: '-90deg' }],
+        }}
+        accessibilityElementsHidden={true}
+      />
       {showPercentage && (
-        <Text style={{ 
-          fontSize: size * 0.25, 
-          fontWeight: '700', 
-          color: theme.colors.textPrimary,
-        }}>
-          {Math.round(progress)}%
+        <Text 
+          style={{ 
+            fontSize: size * 0.25, 
+            fontWeight: '700', 
+            color: theme.colors.textPrimary,
+          }}
+          accessibilityElementsHidden={true}
+        >
+          {roundedProgress}%
         </Text>
       )}
     </View>
+  );
+};
+
+// ============= ICON BUTTON (WCAG Compliant) =============
+interface IconButtonProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'ghost';
+  disabled?: boolean;
+  accessibilityLabel: string;
+  accessibilityHint?: string;
+  style?: ViewStyle;
+}
+
+export const IconButton: React.FC<IconButtonProps> = ({
+  icon,
+  onPress,
+  size = 'md',
+  variant = 'ghost',
+  disabled = false,
+  accessibilityLabel,
+  accessibilityHint,
+  style,
+}) => {
+  const { theme } = useModernTheme();
+  
+  // Ensure WCAG minimum touch target of 44x44
+  const dimensions = {
+    sm: Math.max(36, MIN_TOUCH_TARGET),
+    md: MIN_TOUCH_TARGET,
+    lg: 56,
+  };
+  
+  const iconSizes = {
+    sm: 18,
+    md: 22,
+    lg: 28,
+  };
+  
+  const touchSize = dimensions[size];
+  const iconSize = iconSizes[size];
+  
+  const getBackgroundColor = () => {
+    if (disabled) return theme.colors.surfaceSecondary;
+    switch (variant) {
+      case 'primary': return theme.colors.accent;
+      case 'secondary': return theme.colors.surfaceSecondary;
+      case 'ghost': return 'transparent';
+      default: return 'transparent';
+    }
+  };
+  
+  const getIconColor = () => {
+    if (disabled) return theme.colors.textTertiary;
+    switch (variant) {
+      case 'primary': return theme.colors.textInverse;
+      case 'secondary': return theme.colors.textPrimary;
+      case 'ghost': return theme.colors.accent;
+      default: return theme.colors.accent;
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.7}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled }}
+      style={[
+        {
+          width: touchSize,
+          height: touchSize,
+          borderRadius: touchSize / 2,
+          backgroundColor: getBackgroundColor(),
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: disabled ? 0.5 : 1,
+        },
+        style,
+      ]}
+    >
+      <Ionicons 
+        name={icon} 
+        size={iconSize} 
+        color={getIconColor()}
+        accessibilityElementsHidden={true}
+      />
+    </TouchableOpacity>
+  );
+};
+
+// ============= ACCESSIBLE LINK TEXT =============
+interface LinkTextProps {
+  children: string;
+  onPress: () => void;
+  accessibilityHint?: string;
+  style?: TextStyle;
+}
+
+export const LinkText: React.FC<LinkTextProps> = ({
+  children,
+  onPress,
+  accessibilityHint,
+  style,
+}) => {
+  const { theme } = useModernTheme();
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      accessible={true}
+      accessibilityRole="link"
+      accessibilityLabel={children}
+      accessibilityHint={accessibilityHint}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Text
+        style={[
+          {
+            color: theme.colors.accent,
+            fontSize: theme.typography.fontSize.md,
+            textDecorationLine: 'underline',
+          },
+          style,
+        ]}
+      >
+        {children}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
+// ============= SCREEN READER ANNOUNCEMENT =============
+// Utility component for announcing dynamic content changes
+interface AnnouncementProps {
+  message: string;
+  priority?: 'polite' | 'assertive';
+}
+
+export const ScreenReaderAnnouncement: React.FC<AnnouncementProps> = ({
+  message,
+  priority = 'polite',
+}) => {
+  return (
+    <View
+      accessible={true}
+      accessibilityLiveRegion={priority}
+      accessibilityLabel={message}
+      style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden' }}
+    >
+      <Text>{message}</Text>
+    </View>
+  );
+};
+
+// ============= SKIP LINK (for keyboard navigation) =============
+interface SkipLinkProps {
+  targetRef: React.RefObject<View>;
+  label?: string;
+}
+
+export const SkipLink: React.FC<SkipLinkProps> = ({
+  targetRef,
+  label = 'Skip to main content',
+}) => {
+  const { theme } = useModernTheme();
+
+  const handlePress = () => {
+    targetRef.current?.focus();
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      accessible={true}
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      style={{
+        position: 'absolute',
+        top: -100, // Hidden visually but accessible
+        left: 0,
+        right: 0,
+        backgroundColor: theme.colors.accent,
+        padding: 16,
+        zIndex: 9999,
+      }}
+    >
+      <Text style={{ color: theme.colors.textInverse, textAlign: 'center' }}>
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 };

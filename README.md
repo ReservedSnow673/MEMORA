@@ -3,7 +3,10 @@
 
 Memora is a **React Native app** that gives photos a voice. It automatically generates captions for images using AI, making them more accessible — especially for visually impaired users. Think of it as your personal photo storyteller that works in the background and never forgets to caption a moment.
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> c3ffe28 (Improved gemini compatibility, updated readme, and made UI better)
 ## ✨ Features  
 
 - **🤖 Automatic Captions** – Capture or import a photo, and Memora creates AI-powered captions instantly  
@@ -13,7 +16,7 @@ Memora is a **React Native app** that gives photos a voice. It automatically gen
 - **🔄 Reprocess Images** – Update alt text and descriptions for existing images  
 - **⚡ Background Processing** – New images are auto-processed at intervals you choose (hourly/daily/weekly)  
 - **⚙️ Customizable Settings** – Control connectivity, background fetch frequency, and AI options  
-- **🛡️ Privacy First** – Captions are stored as metadata; your images never leave your device unless you enable cloud sync  
+- **🛡️ Privacy First** – Captions are stored as metadata; your images never leave your device except for processing via Gemini.
 - **🌙 Dark Mode Support** – Fully responsive design with light/dark theme support  
 - **♿ Accessibility Focused** – Designed specifically with blind and visually impaired users in mind  
 - **☁️ Optional Google Sync** – Sign in with Google and sync captions to Google Photos metadata *(coming soon)*  
@@ -23,7 +26,7 @@ Memora is a **React Native app** that gives photos a voice. It automatically gen
 ## 🛠️ Tech Stack  
 
 - **Framework:** React Native with Expo SDK 51  
-- **AI:** OpenAI Vision API (GPT-4o-mini)  
+- **AI:** Gemini 2.5 flash light.
 - **State Management:** Redux Toolkit + Redux Persist  
 - **Navigation:** React Navigation  
 - **Background Tasks:** expo-background-fetch  
@@ -40,9 +43,8 @@ Memora is a **React Native app** that gives photos a voice. It automatically gen
 ### Prerequisites  
 - **Node.js** 18+ 
 - **Expo CLI** → `npm install -g @expo/cli`  
-- **OpenAI API key** (required for image captioning)  
+- **Gemini API key** (required for image captioning)  
 - **Mobile device** or simulator for testing  
-- *(Optional)* Firebase project + Google Photos API for cloud sync
 
 ### Installation  
 ```bash
@@ -58,8 +60,8 @@ npm install
 # Create environment file  
 cp .env.example .env
 
-# Add your OpenAI API key to .env file  
-OPENAI_API_KEY=your_openai_api_key_here
+# Add your Gemini API key to .env file  
+GEMINI_API_KEY=your_openai_api_key_here
 
 # Start the development server  
 npx expo start
@@ -103,7 +105,7 @@ npx expo start
 4. **⚙️ Customize Settings**  
    - Configure theme (Light/Dark/System)  
    - Set processing frequency and conditions  
-   - Manage OpenAI API key  
+   - Manage Gemini API key  
    - Control background processing options  
 
 ---
@@ -131,16 +133,10 @@ npx expo start
 
 ## 🔧 Configuration  
 
-### OpenAI API Setup  
-1. Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys)  
+### Gemini API Setup  
+1. Get your API key from [Gemini Platform](https://aistudio.google.com)  
 2. Add it to your `.env` file or configure it in the app settings  
-3. The app uses GPT-4o-mini for cost-effective image analysis  
-
-### Optional: Google Photos Integration  
-*(Coming Soon)*  
-1. Set up Firebase project  
-2. Enable Google Photos API  
-3. Configure OAuth credentials  
+3. The app uses Gemini-2.5-flash-light for cost-effective image analysis  
 
 ---
 
@@ -177,7 +173,7 @@ npm test
 
 ## 🙏 Acknowledgments  
 
-- OpenAI for providing the Vision API  
+- Gemini for providing the Vision API  
 - Expo team for the excellent React Native framework  
 - The accessibility community for guidance and feedback  
 - Beta testers and contributors  

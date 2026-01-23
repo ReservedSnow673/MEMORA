@@ -1,15 +1,17 @@
 /**
  * Modern Navigation with custom bottom tab bar
  * Inspired by fitness app design with dark theme
+ * Smooth transitions and haptic feedback
  */
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions, Platform, Animated } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 
 import HomeScreenModern from '../screens/HomeScreenModern';
 import GalleryScreenModern from '../screens/GalleryScreenModern';
@@ -18,6 +20,13 @@ import ImageDetailsScreenModern from '../screens/ImageDetailsScreenModern';
 import LoginScreen from '../screens/LoginScreen';
 import { ProcessedImage } from '../store/imagesSlice';
 import { useModernTheme } from '../theme/ThemeContext';
+
+// Haptic feedback for navigation
+const triggerHaptic = () => {
+  try {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  } catch (e) {}
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -43,9 +52,22 @@ const HomeStack = createStackNavigator<HomeStackParamList>();
 
 function HomeStackScreen() {
   return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Navigator 
+      screenOptions={{ 
+        headerShown: false,
+        cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
+      }}
+    >
       <HomeStack.Screen name="Home" component={HomeScreenModern} />
-      <HomeStack.Screen name="ImageDetails" component={ImageDetailsScreenModern} />
+      <HomeStack.Screen 
+        name="ImageDetails" 
+        component={ImageDetailsScreenModern}
+        options={{
+          cardStyleInterpolator: CardStyleInterpolators.forModalPresentationIOS,
+        }}
+      />
     </HomeStack.Navigator>
   );
 }
@@ -81,7 +103,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   };
 
   return (
-    <View style={[styles.tabBarContainer, { backgroundColor: theme.colors.tabBackground }]}>
+    <View 
+      style={[styles.tabBarContainer, { backgroundColor: theme.colors.tabBackground }]}
+      accessible={true}
+      accessibilityLabel="Main navigation"
+    >
       {/* Blur background for iOS */}
       {Platform.OS === 'ios' && (
         <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFillObject} />
@@ -100,16 +126,20 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             });
 
             if (!isFocused && !event.defaultPrevented) {
+              triggerHaptic();
               navigation.navigate(route.name);
             }
           };
 
+          const tabLabel = getTabLabel(route.name);
+
           return (
             <TouchableOpacity
               key={route.key}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isFocused }}
+              accessibilityLabel={tabLabel}
+              accessibilityHint={isFocused ? undefined : `Navigate to ${tabLabel}`}
               onPress={onPress}
               style={styles.tabItem}
               activeOpacity={0.7}

@@ -1,8 +1,14 @@
 /**
  * Modern Gallery Screen
  * Redesigned with dark theme and card-based layout
+ * 
+ * Performance optimizations:
+ * - Memoized render callbacks
+ * - FlatList optimizations
+ * - Debounced search
+ * - Smooth press animations
  */
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, memo, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,10 +19,13 @@ import {
   Dimensions,
   StatusBar,
   TextInput,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 import { RootState } from '../store';
 import { useModernTheme } from '../theme/ThemeContext';
@@ -25,6 +34,220 @@ import { Card, Badge, SectionHeader, EmptyState, StatusIndicator } from '../comp
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2;
+const GRID_ITEM_HEIGHT = CARD_WIDTH * 1.2;
+const LIST_ITEM_HEIGHT = 100;
+
+// Memoized Grid Item component
+const GridItem = memo(({ 
+  item, 
+  onPress, 
+  styles, 
+  theme 
+}: { 
+  item: ProcessedImage; 
+  onPress: () => void;
+  styles: any;
+  theme: any;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  
+  const dateString = item.creationTime 
+    ? new Date(item.creationTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' at ' + new Date(item.creationTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : 'Unknown date';
+  
+  // Build accessibility label: status first if processing, then description, then date
+  let accessibleDescription: string;
+  if (item.status === 'processing') {
+    accessibleDescription = item.caption 
+      ? `Processing. ${item.caption}. ${dateString}`
+      : `Processing. No description yet. ${dateString}`;
+  } else {
+    accessibleDescription = item.caption 
+      ? `${item.caption}. ${dateString}`
+      : `No description yet. ${dateString}`;
+  }
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={accessibleDescription}
+      accessibilityHint="Double tap to view image details"
+    >
+      <Animated.View style={[styles.gridCard, { transform: [{ scale: scaleAnim }] }]}>
+        <Image 
+          source={{ uri: item.uri }} 
+          style={styles.gridImage}
+          accessible={false}
+          importantForAccessibility="no"
+        />
+        
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.85)']}
+          style={styles.imageGradient}
+          importantForAccessibility="no-hide-descendants"
+        />
+        
+        <View style={styles.statusBadge} importantForAccessibility="no" accessible={false} accessibilityElementsHidden={true}>
+          <StatusIndicator status={item.status} accessible={false} />
+        </View>
+
+        {item.detailedDescription && (
+          <View style={styles.detailedBadge} importantForAccessibility="no">
+            <Ionicons name="document-text" size={12} color={theme.colors.textPrimary} />
+          </View>
+        )}
+        
+        {item.caption && (
+          <View style={styles.captionOverlay} importantForAccessibility="no">
+            <Text style={styles.captionText} numberOfLines={2}>
+              {item.caption}
+            </Text>
+          </View>
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+});
+
+// Memoized List Item component
+const ListItem = memo(({ 
+  item, 
+  onPress, 
+  styles, 
+  theme 
+}: { 
+  item: ProcessedImage; 
+  onPress: () => void;
+  styles: any;
+  theme: any;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  
+  const dateString = item.creationTime 
+    ? new Date(item.creationTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' at ' + new Date(item.creationTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : 'Unknown date';
+  
+  // Build accessibility label: status first if processing, then description, then date
+  let accessibleDescription: string;
+  if (item.status === 'processing') {
+    accessibleDescription = item.caption 
+      ? `Processing. ${item.caption}. ${dateString}`
+      : `Processing. No description yet. ${dateString}`;
+  } else {
+    accessibleDescription = item.caption 
+      ? `${item.caption}. ${dateString}`
+      : `No description yet. ${dateString}`;
+  }
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={accessibleDescription}
+      accessibilityHint="Double tap to view image details"
+    >
+      <Animated.View style={[styles.listCard, { transform: [{ scale: scaleAnim }] }]}>
+        <Image 
+          source={{ uri: item.uri }} 
+          style={styles.listImage}
+          accessible={false}
+          importantForAccessibility="no"
+        />
+        
+        <View style={styles.listItemContent} importantForAccessibility="no-hide-descendants" accessible={false}>
+          <View style={styles.listHeader}>
+            <Text style={styles.listFilename} numberOfLines={1}>
+              {item.filename || 'Untitled'}
+            </Text>
+            <StatusIndicator status={item.status} accessible={false} />
+          </View>
+          
+          {item.caption ? (
+            <Text style={styles.listCaption} numberOfLines={2}>
+              {item.caption}
+            </Text>
+          ) : (
+            <Text style={styles.listCaptionPlaceholder}>
+              No description yet
+            </Text>
+          )}
+          
+          <View style={styles.listMeta} importantForAccessibility="no">
+            <View style={styles.metaItem}>
+              <Ionicons name="calendar-outline" size={12} color={theme.colors.textTertiary} />
+              <Text style={styles.metaText}>
+                {dateString}
+              </Text>
+            </View>
+            {item.detailedDescription && (
+              <View style={styles.metaItem}>
+                <Ionicons name="document-text-outline" size={12} color={theme.colors.accent} />
+                <Text style={[styles.metaText, { color: theme.colors.accent }]}>Detailed</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        
+        <Ionicons name="chevron-forward" size={20} color={theme.colors.textTertiary} />
+      </Animated.View>
+    </Pressable>
+  );
+});
 
 interface GalleryScreenProps {
   navigation: any;
@@ -35,116 +258,97 @@ export default function GalleryScreen({ navigation }: GalleryScreenProps) {
   const { theme } = useModernTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const filteredImages = images.filter(image => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
+  // Debounced search handler
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedQuery(text);
+    }, 300);
+  }, []);
+
+  // Memoized filtered images
+  const filteredImages = useMemo(() => {
+    if (!debouncedQuery) return images;
+    const query = debouncedQuery.toLowerCase();
+    return images.filter(image => 
       image.caption?.toLowerCase().includes(query) ||
       image.filename?.toLowerCase().includes(query) ||
       image.detailedDescription?.toLowerCase().includes(query)
     );
-  });
+  }, [images, debouncedQuery]);
 
-  const processedImages = filteredImages.filter(i => i.status === 'processed');
-  const pendingImages = filteredImages.filter(i => i.status !== 'processed');
+  // Memoized stats
+  const { processedImages, pendingImages } = useMemo(() => ({
+    processedImages: filteredImages.filter(i => i.status === 'processed'),
+    pendingImages: filteredImages.filter(i => i.status !== 'processed'),
+  }), [filteredImages]);
 
-  const handleImagePress = (image: ProcessedImage) => {
+  const handleImagePress = useCallback((image: ProcessedImage) => {
     navigation.navigate('ImageDetails', { image });
-  };
+  }, [navigation]);
 
-  const renderGridItem = ({ item }: { item: ProcessedImage }) => (
-    <TouchableOpacity
-      style={styles.gridCard}
+  // Memoized render callbacks
+  const renderGridItem = useCallback(({ item }: { item: ProcessedImage }) => (
+    <GridItem
+      item={item}
       onPress={() => handleImagePress(item)}
-      activeOpacity={0.8}
-    >
-      <Image source={{ uri: item.uri }} style={styles.gridImage} />
-      
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.85)']}
-        style={styles.imageGradient}
-      />
-      
-      <View style={styles.statusBadge}>
-        <StatusIndicator status={item.status} />
-      </View>
+      styles={styles}
+      theme={theme}
+    />
+  ), [handleImagePress, styles, theme]);
 
-      {item.detailedDescription && (
-        <View style={styles.detailedBadge}>
-          <Ionicons name="document-text" size={12} color={theme.colors.textPrimary} />
-        </View>
-      )}
-      
-      {item.caption && (
-        <View style={styles.captionOverlay}>
-          <Text style={styles.captionText} numberOfLines={2}>
-            {item.caption}
-          </Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-
-  const renderListItem = ({ item }: { item: ProcessedImage }) => (
-    <TouchableOpacity
-      style={styles.listCard}
+  const renderListItem = useCallback(({ item }: { item: ProcessedImage }) => (
+    <ListItem
+      item={item}
       onPress={() => handleImagePress(item)}
-      activeOpacity={0.8}
-    >
-      <Image source={{ uri: item.uri }} style={styles.listImage} />
-      
-      <View style={styles.listItemContent}>
-        <View style={styles.listHeader}>
-          <Text style={styles.listFilename} numberOfLines={1}>
-            {item.filename || 'Untitled'}
-          </Text>
-          <StatusIndicator status={item.status} />
-        </View>
-        
-        {item.caption ? (
-          <Text style={styles.listCaption} numberOfLines={2}>
-            {item.caption}
-          </Text>
-        ) : (
-          <Text style={styles.listCaptionPlaceholder}>
-            No description yet
-          </Text>
-        )}
-        
-        <View style={styles.listMeta}>
-          <View style={styles.metaItem}>
-            <Ionicons name="calendar-outline" size={12} color={theme.colors.textTertiary} />
-            <Text style={styles.metaText}>
-              {item.creationTime ? new Date(item.creationTime).toLocaleDateString() : 'Unknown'}
-            </Text>
-          </View>
-          {item.detailedDescription && (
-            <View style={styles.metaItem}>
-              <Ionicons name="document-text-outline" size={12} color={theme.colors.accent} />
-              <Text style={[styles.metaText, { color: theme.colors.accent }]}>Detailed</Text>
-            </View>
-          )}
-        </View>
-      </View>
-      
-      <Ionicons name="chevron-forward" size={20} color={theme.colors.textTertiary} />
-    </TouchableOpacity>
-  );
+      styles={styles}
+      theme={theme}
+    />
+  ), [handleImagePress, styles, theme]);
+
+  const keyExtractor = useCallback((item: ProcessedImage) => item.id, []);
+
+  // Layout calculator for getItemLayout optimization
+  const getItemLayout = useCallback((data: any, index: number) => {
+    if (viewMode === 'grid') {
+      return {
+        length: GRID_ITEM_HEIGHT,
+        offset: GRID_ITEM_HEIGHT * Math.floor(index / 2),
+        index,
+      };
+    }
+    return {
+      length: LIST_ITEM_HEIGHT,
+      offset: LIST_ITEM_HEIGHT * index,
+      index,
+    };
+  }, [viewMode]);
 
   const renderHeader = () => (
-    <View style={styles.headerSection}>
+    <View style={styles.headerSection} accessibilityRole="header">
       {/* Title */}
       <View style={styles.titleRow}>
-        <View>
+        <View accessible={true} accessibilityRole="text">
           <Text style={styles.title}>Gallery</Text>
           <Text style={styles.subtitle}>Your captioned memories</Text>
         </View>
         <TouchableOpacity
           style={styles.viewModeButton}
           onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={`Switch to ${viewMode === 'grid' ? 'list' : 'grid'} view`}
+          accessibilityHint={`Currently in ${viewMode} view. Double tap to change.`}
         >
           <Ionicons 
             name={viewMode === 'grid' ? 'list' : 'grid'} 
@@ -162,35 +366,55 @@ export default function GalleryScreen({ navigation }: GalleryScreenProps) {
           placeholder="Search by caption or filename..."
           placeholderTextColor={theme.colors.textTertiary}
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={handleSearchChange}
+          accessible={true}
+          accessibilityLabel="Search images"
+          accessibilityHint="Enter text to search by caption or filename"
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <TouchableOpacity 
+            onPress={() => {
+              setSearchQuery('');
+              setDebouncedQuery('');
+            }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+          >
             <Ionicons name="close-circle" size={20} color={theme.colors.textTertiary} />
           </TouchableOpacity>
         )}
       </View>
 
       {/* Stats Summary */}
-      <View style={styles.statsRow}>
-        <Card style={styles.statCard}>
-          <View style={styles.statIcon}>
+      <View style={styles.statsRow} accessible={false}>
+        <Card style={styles.statCard} accessible={true} accessibilityLabel={`${processedImages.length} processed images`}>
+          <View 
+            style={styles.statIcon}
+            accessible={false}
+          >
             <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
           </View>
           <Text style={styles.statValue}>{processedImages.length}</Text>
           <Text style={styles.statLabel}>Processed</Text>
         </Card>
         
-        <Card style={styles.statCard}>
-          <View style={styles.statIcon}>
+        <Card style={styles.statCard} accessible={true} accessibilityLabel={`${pendingImages.length} pending images`}>
+          <View 
+            style={styles.statIcon}
+            accessible={false}
+          >
             <Ionicons name="time" size={20} color={theme.colors.warning} />
           </View>
           <Text style={styles.statValue}>{pendingImages.length}</Text>
           <Text style={styles.statLabel}>Pending</Text>
         </Card>
         
-        <Card style={styles.statCard}>
-          <View style={styles.statIcon}>
+        <Card style={styles.statCard} accessible={true} accessibilityLabel={`${filteredImages.length} total images`}>
+          <View 
+            style={styles.statIcon}
+            accessible={false}
+          >
             <Ionicons name="images" size={20} color={theme.colors.accent} />
           </View>
           <Text style={styles.statValue}>{filteredImages.length}</Text>
@@ -227,13 +451,20 @@ export default function GalleryScreen({ navigation }: GalleryScreenProps) {
       <FlatList
         data={filteredImages}
         renderItem={viewMode === 'grid' ? renderGridItem : renderListItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         numColumns={viewMode === 'grid' ? 2 : 1}
         key={viewMode}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : undefined}
         showsVerticalScrollIndicator={false}
+        // Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={viewMode === 'grid' ? 8 : 6}
+        windowSize={5}
+        initialNumToRender={viewMode === 'grid' ? 8 : 6}
+        updateCellsBatchingPeriod={50}
+        getItemLayout={viewMode === 'list' ? getItemLayout : undefined}
         ListEmptyComponent={
           <View style={styles.noResults}>
             <Ionicons name="search-outline" size={48} color={theme.colors.textTertiary} />

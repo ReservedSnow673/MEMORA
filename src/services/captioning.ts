@@ -1,9 +1,9 @@
 import * as FileSystem from 'expo-file-system';
-import { processImageFromUri } from './visionLite';
-import type { VisionResult } from './visionLite';
 import { getApiKeys } from './apiKeys';
 
-export type AIProvider = 'openai' | 'gemini' | 'ondevice';
+// OpenAI temporarily disabled - uncomment to re-enable
+// export type AIProvider = 'openai' | 'gemini';
+export type AIProvider = 'gemini';
 
 export interface CaptionResult {
   caption: string;
@@ -15,15 +15,16 @@ export interface CaptionResult {
 }
 
 export interface AIServiceConfig {
-  openaiApiKey?: string;
+  // openaiApiKey?: string; // OpenAI temporarily disabled
   geminiApiKey?: string;
   preferredProvider: AIProvider;
   enableFallback: boolean;
   maxRetries: number;
 }
 
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+// const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'; // OpenAI temporarily disabled
+// Using Gemini 2.5 Flash-Lite - reliable free model for image captioning
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
 
 const ACCESSIBILITY_PROMPT_SHORT = `Generate a concise alt text description for this image in 15 words or less. Focus on the main subject and key visual elements important for accessibility. Do not include "Image of" or "Photo of" in your response.`;
 
@@ -44,17 +45,17 @@ export class CaptioningService {
     };
     
     this.config = {
-      preferredProvider: config.preferredProvider || 'gemini',
-      enableFallback: config.enableFallback ?? true,
+      preferredProvider: 'gemini', // Only Gemini supported currently
+      enableFallback: false, // No fallback with single provider
       maxRetries: config.maxRetries ?? 2,
       // Use centralized keys, only override if user explicitly provides a VALID key
-      openaiApiKey: isValidKey(config.openaiApiKey) ? config.openaiApiKey : centralizedKeys.openaiApiKey,
+      // openaiApiKey: isValidKey(config.openaiApiKey) ? config.openaiApiKey : centralizedKeys.openaiApiKey, // OpenAI temporarily disabled
       geminiApiKey: isValidKey(config.geminiApiKey) ? config.geminiApiKey : centralizedKeys.geminiApiKey,
     };
     
     // Debug: log which keys are available
     console.log('[CaptioningService] Initialized with keys:', {
-      hasOpenAI: !!this.config.openaiApiKey,
+      // hasOpenAI: !!this.config.openaiApiKey, // OpenAI temporarily disabled
       hasGemini: !!this.config.geminiApiKey,
       provider: this.config.preferredProvider,
     });
@@ -72,8 +73,9 @@ export class CaptioningService {
     this.config = { 
       ...this.config, 
       ...config,
+      preferredProvider: 'gemini', // Force Gemini
       // Ensure we always have the latest keys
-      openaiApiKey: isValidKey(config.openaiApiKey) ? config.openaiApiKey : (this.config.openaiApiKey || centralizedKeys.openaiApiKey),
+      // openaiApiKey: isValidKey(config.openaiApiKey) ? config.openaiApiKey : (this.config.openaiApiKey || centralizedKeys.openaiApiKey), // OpenAI temporarily disabled
       geminiApiKey: isValidKey(config.geminiApiKey) ? config.geminiApiKey : (this.config.geminiApiKey || centralizedKeys.geminiApiKey),
     };
   }
@@ -84,7 +86,6 @@ export class CaptioningService {
   ): Promise<CaptionResult> {
     const startTime = Date.now();
     const providers = this.getProviderOrder();
-    const isOnDeviceMode = this.config.preferredProvider === 'ondevice';
 
     // Debug: Log the full flow
     console.log('[CaptioningService] generateCaption called:', {
@@ -92,9 +93,9 @@ export class CaptioningService {
       detailed,
       preferredProvider: this.config.preferredProvider,
       providerOrder: providers,
-      hasOpenAIKey: !!this.config.openaiApiKey,
+      // hasOpenAIKey: !!this.config.openaiApiKey, // OpenAI temporarily disabled
       hasGeminiKey: !!this.config.geminiApiKey,
-      openAIKeyPreview: this.config.openaiApiKey?.substring(0, 10) + '...',
+      // openAIKeyPreview: this.config.openaiApiKey?.substring(0, 10) + '...', // OpenAI temporarily disabled
       geminiKeyPreview: this.config.geminiApiKey?.substring(0, 10) + '...',
     });
 
@@ -112,9 +113,8 @@ export class CaptioningService {
         return {
           caption,
           confidence,
-          // For ondevice mode, always report 'ondevice' to hide actual provider
-          provider: isOnDeviceMode ? 'ondevice' : provider,
-          isFromFallback: isOnDeviceMode ? false : isRetry,
+          provider,
+          isFromFallback: isRetry,
           processingTimeMs: Date.now() - startTime,
         };
       } catch (error) {
@@ -126,7 +126,7 @@ export class CaptioningService {
           return {
             caption: this.getFallbackCaption(detailed),
             confidence: 0,
-            provider: isOnDeviceMode ? 'ondevice' : provider,
+            provider,
             isFromFallback: true,
             processingTimeMs: Date.now() - startTime,
             error: errorMsg,
@@ -139,7 +139,7 @@ export class CaptioningService {
     return {
       caption: this.getFallbackCaption(detailed),
       confidence: 0,
-      provider: 'ondevice',
+      provider: this.config.preferredProvider,
       isFromFallback: true,
       processingTimeMs: Date.now() - startTime,
       error: 'All providers failed',
@@ -147,37 +147,24 @@ export class CaptioningService {
   }
 
   private getProviderOrder(): AIProvider[] {
-    // Special handling for 'ondevice' - try on-device first, then cloud APIs as fallback
-    if (this.config.preferredProvider === 'ondevice') {
-      const order: AIProvider[] = ['ondevice'];
-      // Fallback to OpenAI if available
-      if (this.config.openaiApiKey) {
-        order.push('openai');
-      }
-      // Then Gemini as secondary fallback
-      if (this.config.geminiApiKey) {
-        order.push('gemini');
-      }
-      return order;
-    }
-
-    // For cloud providers (gemini, openai), DO NOT fall back to on-device
-    // On-device is only used when explicitly selected
+    // Only Gemini supported currently
+    return ['gemini'];
+    
+    /* OpenAI fallback temporarily disabled
     const order: AIProvider[] = [this.config.preferredProvider];
     
     if (this.config.enableFallback) {
-      // Only fall back between cloud providers, never to on-device
+      // Fall back between cloud providers
       if (this.config.preferredProvider !== 'gemini' && this.config.geminiApiKey) {
         order.push('gemini');
       }
       if (this.config.preferredProvider !== 'openai' && this.config.openaiApiKey) {
         order.push('openai');
       }
-      // NOTE: We intentionally do NOT add 'ondevice' as fallback for cloud providers
-      // On-device processing should only be used when explicitly selected
     }
 
     return order;
+    */
   }
 
   private async callProvider(
@@ -186,17 +173,16 @@ export class CaptioningService {
     detailed: boolean
   ): Promise<string> {
     switch (provider) {
-      case 'openai':
-        return this.callOpenAI(imageUri, detailed);
+      // case 'openai': // OpenAI temporarily disabled
+      //   return this.callOpenAI(imageUri, detailed);
       case 'gemini':
         return this.callGemini(imageUri, detailed);
-      case 'ondevice':
-        return this.callOnDevice(imageUri, detailed);
       default:
         throw new Error(`Unknown provider: ${provider}`);
     }
   }
 
+  /* OpenAI temporarily disabled - uncomment to re-enable
   private async callOpenAI(imageUri: string, detailed: boolean): Promise<string> {
     if (!this.config.openaiApiKey) {
       throw new Error('OpenAI API key not configured. Please add OPENAI_API_KEY to your .env file.');
@@ -245,6 +231,7 @@ export class CaptioningService {
 
     return data.choices[0].message.content.trim();
   }
+  */
 
   private async callGemini(imageUri: string, detailed: boolean): Promise<string> {
     if (!this.config.geminiApiKey) {
@@ -295,91 +282,6 @@ export class CaptioningService {
     return text.trim();
   }
 
-  private async callOnDevice(imageUri: string, detailed: boolean): Promise<string> {
-    // Use Memora Vision Lite v0.5 for on-device processing
-    const result: VisionResult = await processImageFromUri(imageUri);
-    
-    // Check if we got a meaningful caption
-    const caption = result.caption_text;
-    const isMinimalCaption = !caption || 
-                              caption.toLowerCase().includes('unclear content') || 
-                              caption === 'An image.' ||
-                              caption.length < 15;
-    
-    // Determine if we need to escalate to cloud
-    const needsCloudEscalation = !result.success || 
-                                  (result.confidence_score < 0.2 && isMinimalCaption) ||
-                                  (isMinimalCaption && result.confidence_score < 0.3);
-    
-    // If on-device worked well, return the caption
-    if (!needsCloudEscalation && !isMinimalCaption) {
-      // For detailed captions, try to expand with more context
-      if (detailed) {
-        const semantic = result.signal_breakdown?.semantic;
-        if (semantic) {
-          let detailedCaption = caption;
-          
-          // Add environment context if available
-          if (semantic.environment !== 'unknown') {
-            detailedCaption = detailedCaption.replace(/\.$/, ` in ${semantic.environment === 'indoor' ? 'an indoor' : 'an outdoor'} setting.`);
-          }
-          
-          // Add text content if present
-          if (semantic.textPresent && semantic.textContent) {
-            detailedCaption += ` The image contains text: "${semantic.textContent}".`;
-          }
-          
-          // Add object context
-          if (semantic.secondaryObjects.length > 0) {
-            const objects = semantic.secondaryObjects.slice(0, 3).join(', ');
-            detailedCaption += ` Additional elements include: ${objects}.`;
-          }
-          
-          return detailedCaption;
-        }
-      }
-      
-      return caption;
-    }
-    
-    // === SILENT CLOUD ESCALATION ===
-    // On-device didn't produce good results, silently try cloud APIs
-    console.log('[CaptioningService] On-device produced low confidence, silently escalating to cloud...');
-    
-    // Try Gemini first (it's faster and cheaper)
-    if (this.config.geminiApiKey) {
-      try {
-        console.log('[CaptioningService] Trying Gemini silently...');
-        const geminiCaption = await this.callGemini(imageUri, detailed);
-        console.log('[CaptioningService] Gemini succeeded silently');
-        return geminiCaption;
-      } catch (geminiError) {
-        console.log('[CaptioningService] Gemini failed:', geminiError instanceof Error ? geminiError.message : 'Unknown error');
-      }
-    }
-    
-    // Try OpenAI as secondary fallback
-    if (this.config.openaiApiKey) {
-      try {
-        console.log('[CaptioningService] Trying OpenAI silently...');
-        const openaiCaption = await this.callOpenAI(imageUri, detailed);
-        console.log('[CaptioningService] OpenAI succeeded silently');
-        return openaiCaption;
-      } catch (openaiError) {
-        console.log('[CaptioningService] OpenAI failed:', openaiError instanceof Error ? openaiError.message : 'Unknown error');
-      }
-    }
-    
-    // All cloud providers failed or unavailable, return the on-device caption anyway
-    // (better than nothing)
-    if (caption && caption.length > 0) {
-      return caption;
-    }
-    
-    // Absolute fallback
-    throw new Error('On-device processing failed and no cloud API available');
-  }
-
   private async imageToBase64(uri: string): Promise<string> {
     try {
       return await FileSystem.readAsStringAsync(uri, {
@@ -416,6 +318,7 @@ export class CaptioningService {
     return 'Image description unavailable';
   }
 
+  /* OpenAI temporarily disabled - uncomment to re-enable
   async testOpenAIConnection(): Promise<boolean> {
     if (!this.config.openaiApiKey) return false;
 
@@ -428,6 +331,7 @@ export class CaptioningService {
       return false;
     }
   }
+  */
 
   async testGeminiConnection(): Promise<boolean> {
     if (!this.config.geminiApiKey) return false;
@@ -444,17 +348,14 @@ export class CaptioningService {
 
   getProviderStatus(): { provider: AIProvider; available: boolean }[] {
     return [
-      {
-        provider: 'openai',
-        available: !!this.config.openaiApiKey,
-      },
+      // OpenAI temporarily disabled
+      // {
+      //   provider: 'openai',
+      //   available: !!this.config.openaiApiKey,
+      // },
       {
         provider: 'gemini',
         available: !!this.config.geminiApiKey,
-      },
-      {
-        provider: 'ondevice',
-        available: true,
       },
     ];
   }

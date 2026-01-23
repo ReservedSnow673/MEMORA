@@ -12,12 +12,33 @@ import { CaptioningService } from './captioning';
 
 const BACKGROUND_PROCESSING_TASK = 'background-processing-task';
 
+// Singleton CaptioningService instance to avoid creating new instances repeatedly
+let captioningServiceInstance: CaptioningService | null = null;
+
+function getCaptioningService(aiProvider?: string): CaptioningService {
+  if (!captioningServiceInstance) {
+    captioningServiceInstance = new CaptioningService({
+      preferredProvider: aiProvider || 'gemini',
+    });
+  } else {
+    // Update config if provider changed
+    captioningServiceInstance.updateConfig({
+      preferredProvider: aiProvider || 'gemini',
+    });
+  }
+  return captioningServiceInstance;
+}
+
+// Track pending timeouts for cleanup
+let pendingIntervalResetTimeout: NodeJS.Timeout | null = null;
+
 // Define the background task
 TaskManager.defineTask(BACKGROUND_PROCESSING_TASK, async () => {
   try {
     const state = store.getState();
     const { processingQueue, items: images } = state.images;
-    const { openAIApiKey, geminiApiKey, aiProvider } = state.settings;
+    // OpenAI temporarily disabled - only Gemini supported
+    const { /* openAIApiKey, */ geminiApiKey, aiProvider } = state.settings;
 
     if (processingQueue.length === 0) {
       return BackgroundFetch.BackgroundFetchResult.NoData;
@@ -35,10 +56,8 @@ TaskManager.defineTask(BACKGROUND_PROCESSING_TASK, async () => {
     try {
       store.dispatch(updateImageStatus({ id: imageId, status: 'processing' }));
       
-      // CaptioningService automatically gets API keys from centralized storage
-      const captioningService = new CaptioningService({
-        preferredProvider: aiProvider || 'gemini',
-      });
+      // Use singleton CaptioningService
+      const captioningService = getCaptioningService(aiProvider);
       const result = await captioningService.generateCaption(image.uri);
       
       if (result.caption && !result.caption.includes('unavailable')) {
@@ -89,12 +108,23 @@ export class BackgroundProcessingService {
     try {
       store.dispatch(addToProcessingQueue(imageId));
       
+      // Clear any pending timeout to prevent memory leaks
+      if (pendingIntervalResetTimeout) {
+        clearTimeout(pendingIntervalResetTimeout);
+        pendingIntervalResetTimeout = null;
+      }
+      
       // Trigger background fetch to process immediately if possible
       await BackgroundFetch.setMinimumIntervalAsync(1000); // Try to process ASAP
       
       // Reset to normal interval after a short delay
-      setTimeout(async () => {
-        await BackgroundFetch.setMinimumIntervalAsync(15 * 1000);
+      pendingIntervalResetTimeout = setTimeout(async () => {
+        try {
+          await BackgroundFetch.setMinimumIntervalAsync(15 * 1000);
+        } catch (e) {
+          console.error('Failed to reset background fetch interval:', e);
+        }
+        pendingIntervalResetTimeout = null;
       }, 5000);
       
     } catch (error) {
@@ -106,7 +136,8 @@ export class BackgroundProcessingService {
     try {
       const state = store.getState();
       const { processingQueue, items: images } = state.images;
-      const { openAIApiKey, geminiApiKey, aiProvider } = state.settings;
+      // OpenAI temporarily disabled - only Gemini supported
+      const { /* openAIApiKey, */ geminiApiKey, aiProvider } = state.settings;
 
       if (processingQueue.length === 0) {
         return;
@@ -114,10 +145,8 @@ export class BackgroundProcessingService {
 
       store.dispatch(setIsProcessing(true));
 
-      // CaptioningService automatically gets API keys from centralized storage
-      const captioningService = new CaptioningService({
-        preferredProvider: aiProvider || 'gemini',
-      });
+      // Use singleton CaptioningService
+      const captioningService = getCaptioningService(aiProvider);
 
       // Process images one by one
       for (const imageId of processingQueue) {

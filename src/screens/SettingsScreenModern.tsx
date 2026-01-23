@@ -2,13 +2,15 @@
  * Modern Settings Screen
  * Redesigned with dark theme, sections, and colorblind mode support
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
+  Animated,
   TextInput,
   Alert,
   Modal,
@@ -17,6 +19,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 import { RootState } from '../store';
 import {
@@ -35,6 +38,73 @@ import { CaptioningService } from '../services/captioning';
 import { useModernTheme, ThemeMode, AccessibilityMode } from '../theme/ThemeContext';
 import { Card, Button, ToggleRow } from '../components/ui';
 import { AIProvider } from '../types';
+
+// Animated option button with haptic feedback
+interface AnimatedOptionProps {
+  isActive: boolean;
+  onPress: () => void;
+  style?: any;
+  activeStyle?: any;
+  children: React.ReactNode;
+  accessibilityLabel: string;
+  accessibilityHint?: string;
+  accessibilityRole?: 'radio' | 'button';
+  accessibilityState?: any;
+}
+
+const AnimatedOption = ({ 
+  isActive, 
+  onPress, 
+  style, 
+  activeStyle,
+  children,
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityRole = 'radio',
+  accessibilityState,
+}: AnimatedOptionProps) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessible={true}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={accessibilityState || { checked: isActive }}
+    >
+      <Animated.View style={[style, isActive && activeStyle, { transform: [{ scale: scaleAnim }] }]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+};
 
 export default function SettingsScreen() {
   const [apiKeyInput, setApiKeyInput] = useState('');
@@ -118,10 +188,10 @@ export default function SettingsScreen() {
     { value: 'highContrast', label: 'High Contrast', description: 'Maximum visibility' },
   ];
 
+  // OpenAI temporarily disabled - only Gemini supported
   const providerOptions: { value: AIProvider; label: string; icon: string; description?: string }[] = [
-    { value: 'ondevice', label: 'Memora Vision Lite v0.5', icon: '🧠', description: 'On-device processing' },
     { value: 'gemini', label: 'Google Gemini', icon: '🌟' },
-    { value: 'openai', label: 'OpenAI GPT-4o', icon: '🤖' },
+    // { value: 'openai', label: 'OpenAI GPT-4o', icon: '🤖' },
   ];
 
   const frequencyOptions = [
@@ -141,10 +211,20 @@ export default function SettingsScreen() {
   ) => (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+        <View 
+          style={styles.modalContent}
+          accessible={true}
+          accessibilityViewIsModal={true}
+          accessibilityLabel={`${title} configuration dialog`}
+        >
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
+            <Text style={styles.modalTitle} accessibilityRole="header">{title}</Text>
+            <TouchableOpacity 
+              onPress={onClose}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Close dialog"
+            >
               <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
             </TouchableOpacity>
           </View>
@@ -163,6 +243,9 @@ export default function SettingsScreen() {
             placeholderTextColor={theme.colors.textTertiary}
             secureTextEntry
             autoCapitalize="none"
+            accessible={true}
+            accessibilityLabel="API key input"
+            accessibilityHint="Enter your API key securely"
           />
           
           <View style={styles.modalButtons}>
@@ -194,26 +277,26 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={styles.header} accessibilityRole="header">
           <Text style={styles.title}>Settings</Text>
           <Text style={styles.subtitle}>Customize your experience</Text>
         </View>
 
         {/* Appearance Section */}
-        <View style={styles.section}>
+        <View style={styles.section} accessible={true} accessibilityLabel="Appearance settings">
           <Text style={styles.sectionTitle}>Appearance</Text>
           
           <Card style={styles.sectionCard}>
             <Text style={styles.cardLabel}>Theme</Text>
-            <View style={styles.optionsRow}>
+            <View style={styles.optionsRow} accessibilityRole="radiogroup" accessibilityLabel="Select theme">
               {themeOptions.map((option) => (
-                <TouchableOpacity
+                <AnimatedOption
                   key={option.value}
-                  style={[
-                    styles.themeOption,
-                    mode === option.value && styles.themeOptionActive,
-                  ]}
+                  isActive={mode === option.value}
                   onPress={() => setMode(option.value)}
+                  style={styles.themeOption}
+                  activeStyle={styles.themeOptionActive}
+                  accessibilityLabel={`${option.label} theme`}
                 >
                   <Ionicons 
                     name={option.icon} 
@@ -226,14 +309,14 @@ export default function SettingsScreen() {
                   ]}>
                     {option.label}
                   </Text>
-                </TouchableOpacity>
+                </AnimatedOption>
               ))}
             </View>
           </Card>
         </View>
 
         {/* Colorblind Mode Section */}
-        <View style={styles.section}>
+        <View style={styles.section} accessible={true} accessibilityLabel="Accessibility settings">
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Accessibility</Text>
             <View style={styles.sectionBadge}>
@@ -243,39 +326,45 @@ export default function SettingsScreen() {
           </View>
           
           <Card style={styles.sectionCard}>
-            {accessibilityOptions.map((option, index) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.accessibilityOption,
-                  index < accessibilityOptions.length - 1 && styles.accessibilityOptionBorder,
-                ]}
-                onPress={() => setAccessibilityMode(option.value)}
-              >
-                <View style={styles.accessibilityInfo}>
-                  <Text style={styles.accessibilityLabel}>{option.label}</Text>
-                  <Text style={styles.accessibilityDescription}>{option.description}</Text>
-                </View>
-                <View style={[
-                  styles.radioOuter,
-                  accessibilityMode === option.value && styles.radioOuterActive,
-                ]}>
-                  {accessibilityMode === option.value && (
-                    <View style={styles.radioInner} />
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
+            <View accessibilityRole="radiogroup" accessibilityLabel="Select accessibility mode">
+              {accessibilityOptions.map((option, index) => (
+                <AnimatedOption
+                  key={option.value}
+                  isActive={accessibilityMode === option.value}
+                  onPress={() => setAccessibilityMode(option.value)}
+                  style={[
+                    styles.accessibilityOption,
+                    index < accessibilityOptions.length - 1 && styles.accessibilityOptionBorder,
+                  ]}
+                  accessibilityLabel={`${option.label}: ${option.description}`}
+                  accessibilityHint="Double tap to select this accessibility mode"
+                >
+                  <View style={styles.accessibilityInfo}>
+                    <Text style={styles.accessibilityLabel}>{option.label}</Text>
+                    <Text style={styles.accessibilityDescription}>{option.description}</Text>
+                  </View>
+                  <View style={[
+                    styles.radioOuter,
+                    accessibilityMode === option.value && styles.radioOuterActive,
+                  ]}>
+                    {accessibilityMode === option.value && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                </AnimatedOption>
+              ))}
+            </View>
           </Card>
         </View>
 
-        {/* AI Provider Section */}
-        <View style={styles.section}>
+        {/* AI Provider Section - Only Gemini currently supported */}
+        <View style={styles.section} accessible={true} accessibilityLabel="AI Provider settings">
           <Text style={styles.sectionTitle}>AI Provider</Text>
           
+          {/* Provider selection temporarily disabled - only Gemini supported
           <Card style={styles.sectionCard}>
             <Text style={styles.cardLabel}>Select Provider</Text>
-            <View style={styles.providerOptions}>
+            <View style={styles.providerOptions} accessibilityRole="radiogroup" accessibilityLabel="Select AI provider">
               {providerOptions.map((option) => (
                 <TouchableOpacity
                   key={option.value}
@@ -284,6 +373,11 @@ export default function SettingsScreen() {
                     settings.aiProvider === option.value && styles.providerOptionActive,
                   ]}
                   onPress={() => dispatch(setAIProvider(option.value))}
+                  accessible={true}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: settings.aiProvider === option.value }}
+                  accessibilityLabel={option.label}
+                  accessibilityHint="Double tap to select this AI provider"
                 >
                   <Text style={styles.providerIcon}>{option.icon}</Text>
                   <Text style={[
@@ -299,27 +393,25 @@ export default function SettingsScreen() {
               ))}
             </View>
           </Card>
+          */}
 
-          {/* API Keys */}
-          <Card style={[styles.sectionCard, { marginTop: 12 }]}>
-            <TouchableOpacity 
-              style={styles.apiKeyRow}
-              onPress={() => setShowApiModal(true)}
-            >
-              <View style={styles.apiKeyInfo}>
-                <Text style={styles.apiKeyLabel}>OpenAI API Key</Text>
-                <Text style={styles.apiKeyStatus}>
-                  {settings.openAIApiKey ? '••••••••' + settings.openAIApiKey.slice(-4) : 'Not configured'}
-                </Text>
-              </View>
-              <Ionicons name="key" size={20} color={theme.colors.accent} />
-            </TouchableOpacity>
-
+          {/* API Keys - Only Gemini for now */}
+          <Card style={styles.sectionCard}>
+            <View style={styles.providerOption}>
+              <Text style={styles.providerIcon}>🌟</Text>
+              <Text style={styles.providerLabel}>Google Gemini</Text>
+              <Ionicons name="checkmark-circle" size={20} color={theme.colors.accent} />
+            </View>
+            
             <View style={styles.divider} />
 
             <TouchableOpacity 
               style={styles.apiKeyRow}
               onPress={() => setShowGeminiModal(true)}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={`Gemini API Key: ${settings.geminiApiKey ? 'Configured' : 'Not configured'}`}
+              accessibilityHint="Double tap to configure your Gemini API key"
             >
               <View style={styles.apiKeyInfo}>
                 <Text style={styles.apiKeyLabel}>Gemini API Key</Text>
@@ -329,11 +421,31 @@ export default function SettingsScreen() {
               </View>
               <Ionicons name="key" size={20} color={theme.colors.accent} />
             </TouchableOpacity>
+            
+            {/* OpenAI temporarily disabled
+            <View style={styles.divider} />
+            <TouchableOpacity 
+              style={styles.apiKeyRow}
+              onPress={() => setShowApiModal(true)}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={`OpenAI API Key: ${settings.openAIApiKey ? 'Configured' : 'Not configured'}`}
+              accessibilityHint="Double tap to configure your OpenAI API key"
+            >
+              <View style={styles.apiKeyInfo}>
+                <Text style={styles.apiKeyLabel}>OpenAI API Key</Text>
+                <Text style={styles.apiKeyStatus}>
+                  {settings.openAIApiKey ? '••••••••' + settings.openAIApiKey.slice(-4) : 'Not configured'}
+                </Text>
+              </View>
+              <Ionicons name="key" size={20} color={theme.colors.accent} />
+            </TouchableOpacity>
+            */}
           </Card>
         </View>
 
         {/* Processing Settings */}
-        <View style={styles.section}>
+        <View style={styles.section} accessible={true} accessibilityLabel="Processing settings">
           <Text style={styles.sectionTitle}>Processing</Text>
           
           <Card style={styles.sectionCard}>
@@ -372,12 +484,12 @@ export default function SettingsScreen() {
         </View>
 
         {/* Background Fetch */}
-        <View style={styles.section}>
+        <View style={styles.section} accessible={true} accessibilityLabel="Background sync settings">
           <Text style={styles.sectionTitle}>Background Sync</Text>
           
           <Card style={styles.sectionCard}>
             <Text style={styles.cardLabel}>Sync Frequency</Text>
-            <View style={styles.frequencyOptions}>
+            <View style={styles.frequencyOptions} accessibilityRole="radiogroup" accessibilityLabel="Select sync frequency">
               {frequencyOptions.map((option) => (
                 <TouchableOpacity
                   key={option.value}
@@ -386,6 +498,10 @@ export default function SettingsScreen() {
                     settings.backgroundFetchFrequency === option.value && styles.frequencyOptionActive,
                   ]}
                   onPress={() => dispatch(setBackgroundFetchFrequency(option.value))}
+                  accessible={true}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: settings.backgroundFetchFrequency === option.value }}
+                  accessibilityLabel={`${option.label} sync frequency`}
                 >
                   <Text style={[
                     styles.frequencyLabel,
@@ -400,7 +516,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* About */}
-        <View style={styles.section}>
+        <View style={styles.section} accessible={true} accessibilityLabel="About Memora">
           <Card style={styles.aboutCard}>
             <LinearGradient
               colors={[theme.colors.accentGradientStart, theme.colors.accentGradientEnd]}
@@ -421,6 +537,7 @@ export default function SettingsScreen() {
       </ScrollView>
 
       {/* Modals */}
+      {/* OpenAI Modal temporarily disabled
       {renderApiModal(
         showApiModal,
         () => setShowApiModal(false),
@@ -430,6 +547,7 @@ export default function SettingsScreen() {
         handleApiKeyUpdate,
         !!settings.openAIApiKey
       )}
+      */}
       {renderApiModal(
         showGeminiModal,
         () => setShowGeminiModal(false),
@@ -536,7 +654,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   accessibilityOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
+    minHeight: 48,
   },
   accessibilityOptionBorder: {
     borderBottomWidth: 1,
@@ -604,7 +723,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   apiKeyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    minHeight: 48,
   },
   apiKeyInfo: {
     flex: 1,
@@ -631,9 +751,11 @@ const createStyles = (theme: any) => StyleSheet.create({
   frequencyOption: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
     backgroundColor: theme.colors.surfaceSecondary,
+    minHeight: 48,
+    justifyContent: 'center',
   },
   frequencyOptionActive: {
     backgroundColor: theme.colors.accent,

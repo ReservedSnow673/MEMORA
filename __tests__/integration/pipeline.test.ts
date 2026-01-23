@@ -193,7 +193,7 @@ describe('Integration: Full Captioning Pipeline', () => {
         false
       );
       
-      // Should fallback to on-device or return error
+      // Should return error when API fails
       expect(result.provider).toBeDefined();
     });
   });
@@ -381,7 +381,6 @@ describe('Integration: Provider Fallback Chain', () => {
     
     const result = await captioningService.generateCaption('file:///test.jpg', false);
     
-    // Cloud providers no longer fall back to on-device
     // When all cloud APIs fail, it returns the last failed provider with error
     expect(result.isFromFallback).toBe(true);
     expect(result.error).toBeTruthy();

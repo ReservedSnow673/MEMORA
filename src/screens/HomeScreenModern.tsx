@@ -2,8 +2,13 @@
  * Modern Home Screen
  * Redesigned with dark theme, orange accents, and card-based layout
  * Inspired by fitness app UI design
+ * 
+ * Performance optimizations:
+ * - Memoized render callbacks
+ * - FlatList optimizations (removeClippedSubviews, windowSize, etc.)
+ * - Proper cleanup in useEffect hooks
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, memo, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +21,8 @@ import {
   Alert,
   ScrollView,
   StatusBar,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,6 +30,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 import { RootState } from '../store';
 import { useModernTheme } from '../theme/ThemeContext';
@@ -33,11 +41,105 @@ import {
   addToProcessingQueue,
   ProcessedImage 
 } from '../store/imagesSlice';
-import { Card, Button, Badge, SectionHeader, StatCard, EmptyState, StatusIndicator, ProgressRing } from '../components/ui';
+import { Card, Button, Badge, SectionHeader, StatCard, EmptyState, StatusIndicator, ProgressRing, useToast } from '../components/ui';
 import BackgroundProcessingService from '../services/backgroundProcessing';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2;
+
+// Memoized Image Card component for better performance
+const ImageCard = memo(({ 
+  item, 
+  onPress, 
+  styles, 
+  theme 
+}: { 
+  item: ProcessedImage; 
+  onPress: () => void;
+  styles: any;
+  theme: any;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  
+  const dateString = item.creationTime 
+    ? new Date(item.creationTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + 
+      ' at ' + new Date(item.creationTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : 'Unknown date';
+  
+  // Build accessibility label: status first if processing, then description, then date
+  let accessibleDescription: string;
+  if (item.status === 'processing') {
+    accessibleDescription = item.caption 
+      ? `Processing. ${item.caption}. ${dateString}`
+      : `Processing. No description yet. ${dateString}`;
+  } else {
+    accessibleDescription = item.caption 
+      ? `${item.caption}. ${dateString}`
+      : `No description yet. ${dateString}`;
+  }
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={accessibleDescription}
+      accessibilityHint="Double tap to view image details"
+    >
+      <Animated.View style={[styles.imageCard, { transform: [{ scale: scaleAnim }] }]}>
+        <Image 
+          source={{ uri: item.uri }} 
+          style={styles.imagePreview}
+          accessible={false}
+          importantForAccessibility="no"
+        />
+        
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          style={styles.imageGradient}
+          importantForAccessibility="no-hide-descendants"
+        />
+        
+        <View style={styles.statusBadge} importantForAccessibility="no" accessible={false} accessibilityElementsHidden={true}>
+          <StatusIndicator status={item.status} accessible={false} />
+        </View>
+        
+        {item.caption && (
+          <View style={styles.captionContainer} importantForAccessibility="no">
+            <Text style={styles.captionText} numberOfLines={2}>
+              {item.caption}
+            </Text>
+          </View>
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+});
 
 interface HomeScreenProps {
   navigation: any;
@@ -46,31 +148,50 @@ interface HomeScreenProps {
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { theme } = useModernTheme();
   const dispatch = useDispatch();
+  const { showToast } = useToast();
   const { items: images, processingQueue, isProcessing } = useSelector((state: RootState) => state.images);
   const settings = useSelector((state: RootState) => state.settings);
   
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'processed' | 'processing' | 'unprocessed'>('all');
 
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
-  // Stats
-  const processedCount = images.filter(i => i.status === 'processed').length;
-  const processingCount = images.filter(i => i.status === 'processing').length;
-  const totalCount = images.length;
-  const progressPercentage = totalCount > 0 ? Math.round((processedCount / totalCount) * 100) : 0;
+  // Memoized stats calculations
+  const { processedCount, processingCount, totalCount, progressPercentage } = useMemo(() => {
+    const processed = images.filter(i => i.status === 'processed').length;
+    const processing = images.filter(i => i.status === 'processing').length;
+    const total = images.length;
+    const percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
+    return { processedCount: processed, processingCount: processing, totalCount: total, progressPercentage: percentage };
+  }, [images]);
 
   useFocusEffect(
     useCallback(() => {
-      BackgroundProcessingService.initialize();
+      let isMounted = true;
+      
+      const initBackground = async () => {
+        if (isMounted) {
+          await BackgroundProcessingService.initialize();
+        }
+      };
+      
+      initBackground();
+      
+      return () => {
+        isMounted = false;
+      };
     }, [])
   );
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await BackgroundProcessingService.processImagesInForeground();
-    setRefreshing(false);
-  };
+    try {
+      await BackgroundProcessingService.processImagesInForeground();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const pickImage = async () => {
     try {
@@ -100,14 +221,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           }
         }
 
-        Alert.alert(
-          '✨ Images Added',
-          `Added ${result.assets.length} image${result.assets.length > 1 ? 's' : ''} to your collection.`
+        showToast(
+          `✨ Added ${result.assets.length} image${result.assets.length > 1 ? 's' : ''} to your collection`,
+          'success'
         );
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick images');
+      showToast('Failed to pick images', 'error');
     }
   };
 
@@ -136,11 +257,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           BackgroundProcessingService.addImageToQueue(imageData.id);
         }
 
-        Alert.alert('📸 Photo Captured', 'Your photo has been added to the collection.');
+        showToast('📸 Photo captured and added to collection', 'success');
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      Alert.alert('Error', 'Failed to take photo');
+      showToast('Failed to take photo', 'error');
     }
   };
 
@@ -148,7 +269,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant photo library permissions.');
+        showToast('Please grant photo library permissions in Settings', 'error');
         return;
       }
 
@@ -185,72 +306,61 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 dispatch(addImage(newImage));
               }
 
-              Alert.alert('🎉 Import Complete', `Imported ${newAssets.length} new photos.`);
+              showToast(`🎉 Imported ${newAssets.length} new photos`, 'success');
             },
           },
         ]
       );
     } catch (error) {
       console.error('Error importing:', error);
-      Alert.alert('Error', 'Failed to import photos');
+      showToast('Failed to import photos', 'error');
     }
   };
 
-  const filteredImages = images.filter(image => {
-    if (selectedFilter === 'all') return true;
-    return image.status === selectedFilter;
-  });
+  // Memoized filtered images
+  const filteredImages = useMemo(() => {
+    if (selectedFilter === 'all') return images;
+    return images.filter(image => image.status === selectedFilter);
+  }, [images, selectedFilter]);
 
-  const filters = [
+  // Memoized filters data
+  const filters = useMemo(() => [
     { key: 'all', label: 'All', count: totalCount },
     { key: 'processed', label: 'Done', count: processedCount },
     { key: 'processing', label: 'Active', count: processingCount },
     { key: 'unprocessed', label: 'Pending', count: totalCount - processedCount - processingCount },
-  ];
+  ], [totalCount, processedCount, processingCount]);
 
-  const renderImageCard = ({ item }: { item: ProcessedImage }) => (
-    <TouchableOpacity
-      style={styles.imageCard}
+  // Memoized render callback for FlatList
+  const renderImageCard = useCallback(({ item }: { item: ProcessedImage }) => (
+    <ImageCard
+      item={item}
       onPress={() => navigation.navigate('ImageDetails', { image: item })}
-      activeOpacity={0.8}
-    >
-      <Image source={{ uri: item.uri }} style={styles.imagePreview} />
-      
-      {/* Gradient overlay */}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.8)']}
-        style={styles.imageGradient}
-      />
-      
-      {/* Status badge */}
-      <View style={styles.statusBadge}>
-        <StatusIndicator status={item.status} />
-      </View>
-      
-      {/* Caption preview */}
-      {item.caption && (
-        <View style={styles.captionContainer}>
-          <Text style={styles.captionText} numberOfLines={2}>
-            {item.caption}
-          </Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+      styles={styles}
+      theme={theme}
+    />
+  ), [navigation, styles, theme]);
+
+  // Memoized keyExtractor
+  const keyExtractor = useCallback((item: ProcessedImage) => item.id, []);
 
   const renderHeader = () => (
-    <View style={styles.headerSection}>
+    <View style={styles.headerSection} accessibilityRole="header">
       {/* Welcome Section */}
       <View style={styles.welcomeRow}>
-        <View>
+        <View accessible={true} accessibilityRole="text">
           <Text style={styles.dateText}>
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase()}
+            MEMORA
           </Text>
           <Text style={styles.welcomeText}>Hi there 👋</Text>
         </View>
         <TouchableOpacity 
           style={styles.settingsButton}
           onPress={() => navigation.navigate('Settings')}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Settings"
+          accessibilityHint="Opens settings screen"
         >
           <Ionicons name="settings-outline" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
@@ -259,7 +369,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       {/* Stats Cards */}
       <View style={styles.statsRow}>
         <Card variant="elevated" style={styles.progressCard}>
-          <View style={styles.progressContent}>
+          <View style={styles.progressContent} accessible={true} accessibilityLabel={`Progress: ${processedCount} of ${totalCount} images processed, ${progressPercentage} percent complete`}>
             <ProgressRing progress={progressPercentage} size={70} />
             <View style={styles.progressInfo}>
               <Text style={styles.progressLabel}>Progress</Text>
@@ -276,6 +386,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         showsHorizontalScrollIndicator={false}
         style={styles.quickStatsScroll}
         contentContainerStyle={styles.quickStatsContent}
+        accessible={false}
       >
         <StatCard icon="images" value={totalCount} label="Total" />
         <StatCard icon="checkmark-done" value={processedCount} label="Done" />
@@ -285,8 +396,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       {/* Action Buttons */}
       <View style={styles.actionsSection}>
         <SectionHeader title="Quick Actions" />
-        <View style={styles.actionButtonsRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={pickImage}>
+        <View style={styles.actionButtonsRow} accessible={false}>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={pickImage}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Add from Gallery"
+            accessibilityHint="Opens photo library to select images"
+          >
             <LinearGradient
               colors={[theme.colors.accentGradientStart, theme.colors.accentGradientEnd]}
               style={styles.actionButtonGradient}
@@ -296,14 +414,28 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={styles.actionButtonLabel}>Gallery</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionButton} onPress={takePhoto}>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={takePhoto}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Take Photo"
+            accessibilityHint="Opens camera to take a new photo"
+          >
             <View style={[styles.actionButtonIcon, { backgroundColor: theme.colors.surfaceSecondary }]}>
               <Ionicons name="camera" size={24} color={theme.colors.accent} />
             </View>
             <Text style={styles.actionButtonLabel}>Camera</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionButton} onPress={importAllPhotos}>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={importAllPhotos}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Import All Photos"
+            accessibilityHint="Imports photos from your photo library"
+          >
             <View style={[styles.actionButtonIcon, { backgroundColor: theme.colors.surfaceSecondary }]}>
               <Ionicons name="cloud-download" size={24} color={theme.colors.accent} />
             </View>
@@ -313,6 +445,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <TouchableOpacity 
             style={styles.actionButton} 
             onPress={() => BackgroundProcessingService.processImagesInForeground()}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Process All Images"
+            accessibilityHint="Starts AI processing for all pending images"
           >
             <View style={[styles.actionButtonIcon, { backgroundColor: theme.colors.surfaceSecondary }]}>
               <Ionicons name="flash" size={24} color={theme.colors.accent} />
@@ -332,6 +468,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           horizontal 
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterTabsContent}
+          accessible={true}
+          accessibilityLabel="Filter images by status"
         >
           {filters.map((filter) => (
             <TouchableOpacity
@@ -341,6 +479,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 selectedFilter === filter.key && styles.filterTabActive,
               ]}
               onPress={() => setSelectedFilter(filter.key as any)}
+              accessible={true}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: selectedFilter === filter.key }}
+              accessibilityLabel={`${filter.label}, ${filter.count} images`}
             >
               <Text style={[
                 styles.filterTabText,
@@ -384,12 +526,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <FlatList
           data={filteredImages}
           renderItem={renderImageCard}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           numColumns={2}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={styles.listContent}
           columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}
+          // Performance optimizations
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={6}
+          windowSize={5}
+          initialNumToRender={6}
+          updateCellsBatchingPeriod={50}
+          getItemLayout={(data, index) => ({
+            length: CARD_WIDTH + 12,
+            offset: (CARD_WIDTH + 12) * Math.floor(index / 2),
+            index,
+          })}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

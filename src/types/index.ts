@@ -34,7 +34,7 @@ export interface User {
   isAnonymous: boolean;
 }
 
-export type AIProvider = 'openai' | 'gemini' | 'ondevice';
+export type AIProvider = 'openai' | 'gemini';
 
 export interface AppSettings {
   backgroundFetchFrequency: 'hourly' | 'daily' | 'weekly';

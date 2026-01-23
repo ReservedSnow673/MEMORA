@@ -3,7 +3,9 @@ import * as FileSystem from 'expo-file-system';
 
 jest.mock('expo-file-system');
 
-describe('OpenAIService', () => {
+// OpenAI temporarily disabled - these tests are skipped
+// To re-enable: change describe.skip back to describe
+describe.skip('OpenAIService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (global.fetch as jest.Mock).mockClear();
