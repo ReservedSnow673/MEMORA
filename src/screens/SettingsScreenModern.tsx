@@ -67,10 +67,10 @@ const AnimatedOption = ({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.95,
+      toValue: 0.96,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -78,8 +78,8 @@ const AnimatedOption = ({
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -629,24 +629,31 @@ const createStyles = (theme: any) => StyleSheet.create({
   },
   optionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    marginHorizontal: -4,
   },
   themeOption: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
+    paddingHorizontal: 8,
+    marginHorizontal: 4,
     borderRadius: 12,
     backgroundColor: theme.colors.surfaceSecondary,
-    gap: 8,
+    minWidth: 80,
   },
   themeOptionActive: {
     backgroundColor: theme.colors.accent,
+  },
+  themeOptionIcon: {
+    marginBottom: 8,
   },
   themeOptionText: {
     fontSize: 13,
     fontWeight: '600',
     color: theme.colors.textSecondary,
+    marginTop: 8,
   },
   themeOptionTextActive: {
     color: theme.colors.textInverse,

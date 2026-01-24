@@ -136,7 +136,7 @@ npx expo start
 ### Gemini API Setup  
 1. Get your API key from [Gemini Platform](https://aistudio.google.com)  
 2. Add it to your `.env` file or configure it in the app settings  
-3. The app uses Gemini-2.5-flash-light for cost-effective image analysis  
+3. The app uses Gemini 3 Flash for cost-effective image analysis  
 
 ---
 

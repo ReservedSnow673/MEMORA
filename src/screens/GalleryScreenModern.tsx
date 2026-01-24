@@ -15,7 +15,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
   Dimensions,
   StatusBar,
   TextInput,
@@ -30,7 +29,7 @@ import * as Haptics from 'expo-haptics';
 import { RootState } from '../store';
 import { useModernTheme } from '../theme/ThemeContext';
 import { ProcessedImage } from '../store/imagesSlice';
-import { Card, Badge, SectionHeader, EmptyState, StatusIndicator } from '../components/ui';
+import { Card, Badge, SectionHeader, EmptyState, StatusIndicator, OptimizedImage } from '../components/ui';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48 - 12) / 2;
@@ -70,10 +69,10 @@ const GridItem = memo(({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.95,
+      toValue: 0.96,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -81,8 +80,8 @@ const GridItem = memo(({
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -102,11 +101,12 @@ const GridItem = memo(({
       accessibilityHint="Double tap to view image details"
     >
       <Animated.View style={[styles.gridCard, { transform: [{ scale: scaleAnim }] }]}>
-        <Image 
-          source={{ uri: item.uri }} 
+        <OptimizedImage 
+          uri={item.uri} 
           style={styles.gridImage}
           accessible={false}
-          importantForAccessibility="no"
+          priority="normal"
+          transition={150}
         />
         
         <LinearGradient
@@ -172,8 +172,8 @@ const ListItem = memo(({
     Animated.spring(scaleAnim, {
       toValue: 0.98,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -181,8 +181,8 @@ const ListItem = memo(({
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -202,11 +202,12 @@ const ListItem = memo(({
       accessibilityHint="Double tap to view image details"
     >
       <Animated.View style={[styles.listCard, { transform: [{ scale: scaleAnim }] }]}>
-        <Image 
-          source={{ uri: item.uri }} 
+        <OptimizedImage 
+          uri={item.uri} 
           style={styles.listImage}
           accessible={false}
-          importantForAccessibility="no"
+          priority="normal"
+          transition={150}
         />
         
         <View style={styles.listItemContent} importantForAccessibility="no-hide-descendants" accessible={false}>

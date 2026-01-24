@@ -13,7 +13,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   TouchableOpacity,
   Pressable,
   Animated,
@@ -31,7 +30,7 @@ import { useModernTheme } from '../theme/ThemeContext';
 import { RootState } from '../store';
 import { updateImageCaption, updateImageDetailedDescription } from '../store/imagesSlice';
 import { CaptioningService } from '../services/captioning';
-import { Card, Button, StatusIndicator, useToast, EditModal } from '../components/ui';
+import { Card, Button, StatusIndicator, useToast, EditModal, OptimizedImage } from '../components/ui';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -63,8 +62,8 @@ const AnimatedIconButton = ({
     Animated.spring(scaleAnim, {
       toValue: 0.85,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -72,8 +71,8 @@ const AnimatedIconButton = ({
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -119,8 +118,8 @@ const ImagePreview = ({ currentImage, setShowFullImage, styles, theme }: ImagePr
     Animated.spring(scaleAnim, {
       toValue: 0.98,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -128,8 +127,8 @@ const ImagePreview = ({ currentImage, setShowFullImage, styles, theme }: ImagePr
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -149,12 +148,13 @@ const ImagePreview = ({ currentImage, setShowFullImage, styles, theme }: ImagePr
       accessibilityHint="Double tap to view fullscreen"
     >
       <Animated.View style={[styles.imageContainer, { transform: [{ scale: scaleAnim }] }]}>
-        <Image 
-          source={{ uri: currentImage.uri }} 
+        <OptimizedImage 
+          uri={currentImage.uri} 
           style={styles.mainImage}
-          resizeMode="cover"
+          contentFit="cover"
           accessible={false}
-          importantForAccessibility="no"
+          priority="high"
+          transition={200}
         />
         <LinearGradient
           colors={['transparent', 'rgba(0,0,0,0.7)']}

@@ -76,10 +76,14 @@ export default {
       "expo-font"
     ],
     scheme: "memora",
-    extra: {
-      eas: {
-        projectId: "your-project-id-here"
+      
+
+    "extra": {
+      "eas": {
+        "projectId": "59bc58b1-ebc9-40d6-a676-06a6d2aca3fb"
       }
     }
+
   }
+
 };

@@ -23,10 +23,10 @@ export interface AIServiceConfig {
 }
 
 // const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'; // OpenAI temporarily disabled
-// Using Gemini 2.5 Flash-Lite - reliable free model for image captioning
+// Using Gemini 2.5 Flash-Lite - stable, cost-effective model for image captioning
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
 
-const ACCESSIBILITY_PROMPT_SHORT = `Generate a concise alt text description for this image in 15 words or less. Focus on the main subject and key visual elements important for accessibility. Do not include "Image of" or "Photo of" in your response.`;
+const ACCESSIBILITY_PROMPT_SHORT = `Describe this image in one sentence. Be specific about the subject, action, and setting. Keep under 150 characters.`;
 
 const ACCESSIBILITY_PROMPT_DETAILED = `Describe this image for a person who cannot see it. Include: the main subject, setting, colors, actions, and emotional tone. Keep the description under 150 words. Be factual and objective.`;
 
@@ -261,8 +261,8 @@ export class CaptioningService {
           },
         ],
         generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: detailed ? 200 : 100,
+          temperature: 0.7,
+          maxOutputTokens: 256,
         },
       }),
     });

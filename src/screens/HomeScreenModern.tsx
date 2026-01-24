@@ -15,7 +15,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  Image,
   Dimensions,
   RefreshControl,
   Alert,
@@ -41,7 +40,7 @@ import {
   addToProcessingQueue,
   ProcessedImage 
 } from '../store/imagesSlice';
-import { Card, Button, Badge, SectionHeader, StatCard, EmptyState, StatusIndicator, ProgressRing, useToast } from '../components/ui';
+import { Card, Button, Badge, SectionHeader, StatCard, EmptyState, StatusIndicator, ProgressRing, useToast, OptimizedImage } from '../components/ui';
 import BackgroundProcessingService from '../services/backgroundProcessing';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -80,10 +79,10 @@ const ImageCard = memo(({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.95,
+      toValue: 0.96,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -91,8 +90,8 @@ const ImageCard = memo(({
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -112,11 +111,12 @@ const ImageCard = memo(({
       accessibilityHint="Double tap to view image details"
     >
       <Animated.View style={[styles.imageCard, { transform: [{ scale: scaleAnim }] }]}>
-        <Image 
-          source={{ uri: item.uri }} 
+        <OptimizedImage 
+          uri={item.uri} 
           style={styles.imagePreview}
           accessible={false}
-          importantForAccessibility="no"
+          priority="normal"
+          transition={150}
         />
         
         <LinearGradient

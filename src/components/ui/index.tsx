@@ -3,7 +3,7 @@
  * Inspired by fitness app design with cards, buttons, badges
  * WCAG 2.1 AA Compliant - Accessible UI Components
  */
-import React, { ReactNode, useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
+import React, { ReactNode, useState, useEffect, useCallback, createContext, useContext, useRef, memo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
+  ImageStyle,
   Dimensions,
   ActivityIndicator,
   Animated,
@@ -21,6 +22,7 @@ import {
   AccessibilityInfo,
   Pressable,
   Switch,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,6 +31,48 @@ import * as Haptics from 'expo-haptics';
 
 // Minimum touch target size for WCAG 2.1 AA compliance
 const MIN_TOUCH_TARGET = 44;
+
+// ============= OPTIMIZED IMAGE COMPONENT =============
+// Memoized image with proper defaults for performance
+interface OptimizedImageProps {
+  uri: string;
+  style?: ImageStyle | ViewStyle;
+  contentFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
+  transition?: number;
+  accessible?: boolean;
+  accessibilityLabel?: string;
+  priority?: 'low' | 'normal' | 'high';
+  placeholder?: string;
+  onLoad?: () => void;
+  onError?: () => void;
+}
+
+export const OptimizedImage = memo(({
+  uri,
+  style,
+  contentFit = 'cover',
+  accessible = false,
+  accessibilityLabel,
+  onLoad,
+  onError,
+}: OptimizedImageProps) => {
+  // Map contentFit to resizeMode
+  const resizeMode = contentFit === 'contain' ? 'contain' : 
+                     contentFit === 'fill' ? 'stretch' : 
+                     contentFit === 'none' ? 'center' : 'cover';
+
+  return (
+    <Image
+      source={{ uri }}
+      style={style as ImageStyle}
+      resizeMode={resizeMode}
+      accessible={accessible}
+      accessibilityLabel={accessibilityLabel}
+      onLoad={onLoad}
+      onError={onError}
+    />
+  );
+});
 
 // Haptic feedback helper
 const triggerHaptic = (type: 'light' | 'medium' | 'success' | 'warning' | 'error' = 'light') => {
@@ -95,13 +139,13 @@ const ToastItem: React.FC<{ toast: ToastMessage; onHide: () => void }> = ({ toas
       Animated.spring(opacity, { 
         toValue: 1, 
         useNativeDriver: true,
-        tension: 100,
+        tension: 200,
         friction: 8,
       }),
       Animated.spring(translateY, { 
         toValue: 0, 
         useNativeDriver: true,
-        tension: 100,
+        tension: 200,
         friction: 8,
       }),
     ]).start();
@@ -406,10 +450,10 @@ export const Card: React.FC<CardProps> = ({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.97,
+      toValue: 0.98,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -417,8 +461,8 @@ export const Card: React.FC<CardProps> = ({
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -509,10 +553,10 @@ export const Button: React.FC<ButtonProps> = ({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.95,
+      toValue: 0.96,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
@@ -520,13 +564,13 @@ export const Button: React.FC<ButtonProps> = ({
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 300,
-      friction: 10,
+      tension: 400,
+      friction: 7,
     }).start();
   };
 
   const handlePress = () => {
-    triggerHaptic(variant === 'primary' ? 'medium' : 'light');
+    triggerHaptic(variant === 'primary' ? 'light' : 'light');
     onPress();
   };
 
