@@ -1,183 +1,176 @@
+
+
 # 📸 Memora – AI-Powered Image Captioning  
 **Making memories visible, making images accessible**
 
-Memora is a **React Native app** that gives photos a voice. It automatically generates captions for images using AI, making them more accessible — especially for visually impaired users. Think of it as your personal photo storyteller that works in the background and never forgets to caption a moment.
+Memora is a **React Native (Expo) mobile application** that automatically generates meaningful, accessibility-focused image descriptions using **Google Gemini 3.0**. It is built to make visual content understandable through screen readers — seamlessly, privately, and at scale.
 
-<<<<<<< HEAD
-
-=======
->>>>>>> c3ffe28 (Improved gemini compatibility, updated readme, and made UI better)
-## ✨ Features  
-
-- **🤖 Automatic Captions** – Capture or import a photo, and Memora creates AI-powered captions instantly  
-- **📱 Multiple Image Upload** – Select and process multiple images at once from your gallery  
-- **🖼️ Enhanced Gallery View** – Browse all your images with clickable thumbnails and status indicators  
-- **📝 Detailed Descriptions** – Generate comprehensive accessibility-focused descriptions on demand  
-- **🔄 Reprocess Images** – Update alt text and descriptions for existing images  
-- **⚡ Background Processing** – New images are auto-processed at intervals you choose (hourly/daily/weekly)  
-- **⚙️ Customizable Settings** – Control connectivity, background fetch frequency, and AI options  
-- **🛡️ Privacy First** – Captions are stored as metadata; your images never leave your device except for processing via Gemini.
-- **🌙 Dark Mode Support** – Fully responsive design with light/dark theme support  
-- **♿ Accessibility Focused** – Designed specifically with blind and visually impaired users in mind  
-- **☁️ Optional Google Sync** – Sign in with Google and sync captions to Google Photos metadata *(coming soon)*  
+Unlike traditional captioning tools, Memora embeds descriptions directly into image metadata, ensuring accessibility persists across apps, platforms, and devices rather than remaining confined to a single application.
 
 ---
 
-## 🛠️ Tech Stack  
+## 🌱 Inspiration
 
-- **Framework:** React Native with Expo SDK 51  
-- **AI:** Gemini 2.5 flash light.
-- **State Management:** Redux Toolkit + Redux Persist  
-- **Navigation:** React Navigation  
-- **Background Tasks:** expo-background-fetch  
-- **Image Processing:** expo-image-picker + expo-media-library  
-- **Storage:** Local with metadata; optional Google Photos API sync  
-- **Type Safety:** TypeScript  
-- **Styling:** React Native StyleSheet with dynamic theming  
-- **Icons:** @expo/vector-icons (Ionicons & MaterialIcons)
+The digital world is increasingly visual. Photos are central to communication, education, and memory — yet for many users, images remain inaccessible without meaningful descriptions. We repeatedly observed how shared images lack context, how educational diagrams cannot be interpreted by screen readers, and how personal photo libraries become collections of “unknown image” files.
+
+Memora was created to address this gap by making accessibility **automatic rather than optional**, and by designing with real usage constraints in mind — privacy, simplicity, and reliability.
+
+Our guiding principle is simple:
+
+> **Accessibility should happen by default, not on request.**
 
 ---
 
-## 🚀 Getting Started  
+## 🤖 What Memora Does
 
-### Prerequisites  
-- **Node.js** 18+ 
-- **Expo CLI** → `npm install -g @expo/cli`  
-- **Gemini API key** (required for image captioning)  
-- **Mobile device** or simulator for testing  
+Memora continuously monitors a user’s photo library and automatically generates two complementary forms of image descriptions:
 
-### Installation  
-```bash
-# Clone the repository  
-git clone https://github.com/ReservedSnow673/Memora.git  
+- **Concise alt text** optimized for screen readers  
+- **Detailed contextual descriptions** that explain objects, people, text, and spatial relationships  
 
-# Navigate to project directory  
-cd "Memora 2.0"  
+Using **Gemini 3.0’s vision-language capabilities**, Memora understands both visual content and embedded text, producing descriptions that go beyond generic labels.
 
-# Install dependencies  
-npm install
-
-# Create environment file  
-cp .env.example .env
-
-# Add your Gemini API key to .env file  
-GEMINI_API_KEY=your_openai_api_key_here
-
-# Start the development server  
-npx expo start
-```
-
-### Running the App  
-```bash
-# For iOS (requires Xcode)  
-npx expo run:ios
-
-# For Android (requires Android Studio)  
-npx expo run:android  
-
-# For web development  
-npx expo start --web
-
-# Using Expo Go app  
-npx expo start
-# Then scan QR code with Expo Go app
-```
+These captions are embedded directly into the image’s **EXIF/XMP metadata**, allowing screen readers such as **TalkBack** and **VoiceOver** to read them instantly — across galleries, messaging apps, and photo platforms.
 
 ---
 
-## 📱 How to Use  
+## 🎥 Demo
 
-1. **📷 Take or Import Photos**  
-   - Use "Take Photo" to capture new images  
-   - Use "Pick Multiple" to select multiple images from your gallery  
-   - Use "Browse All" to explore your entire photo library  
-   - Use "Import All Gallery Images" for bulk processing  
+▶️ **Watch the live demo:**  
+https://www.youtube.com/watch?v=1oNDaPndQXo
 
-2. **🤖 Automatic Processing**  
-   - Images are automatically processed with AI-generated alt text  
-   - View processing status with visual indicators (✓ processed, ⏱️ processing, ○ unprocessed)  
-
-3. **📝 Generate Detailed Descriptions**  
-   - Tap any image in the gallery to view details  
-   - Use "Generate Detailed Description" for comprehensive accessibility descriptions  
-   - Reprocess images to update alt text and descriptions  
-
-4. **⚙️ Customize Settings**  
-   - Configure theme (Light/Dark/System)  
-   - Set processing frequency and conditions  
-   - Manage Gemini API key  
-   - Control background processing options  
+The demo walks through:
+- Automatic image detection  
+- Caption generation using Gemini 3.0  
+- Metadata-based accessibility  
+- Screen reader output in real time  
 
 ---
 
-## 🎯 Key Features Showcase  
+## ✨ Key Features
 
-### 🤖 AI-Powered Accessibility  
-- **Smart Alt Text (150 chars):** Concise, specific descriptions for screen readers  
-- **Detailed Descriptions (1000 chars):** Comprehensive descriptions with spatial relationships and context  
-- **Non-generic Approach:** Avoids generic phrases like "person smiling" for specific, meaningful descriptions  
-
-### 📱 Enhanced User Experience  
-- **Batch Processing:** Upload and process multiple images simultaneously  
-- **Responsive Design:** Adapts to different screen sizes (phones/tablets)  
-- **Status Indicators:** Visual feedback for processing states  
-- **Theme Support:** Beautiful light and dark mode interfaces  
-
-### ♿ Accessibility First  
-- **Screen Reader Optimized:** Designed specifically for visually impaired users  
-- **High Contrast Support:** Multiple color schemes for different needs  
-- **Touch Target Optimization:** Large, accessible interactive elements  
-- **Clear Navigation:** Intuitive layout with proper focus management  
+- 🤖 **Automatic Captioning** – Images are described as soon as they appear  
+- 📱 **Batch Processing** – Multiple images can be processed together  
+- 📝 **Detailed Descriptions** – Context-rich narratives for accessibility  
+- 🔄 **Reprocessing Support** – Update captions when needed  
+- ⚡ **Background Execution** – Hands-free, scheduled processing  
+- 🛡️ **Privacy-First Design** – Images are never stored externally  
+- 🌙 **Dark Mode** – Adaptive theming  
+- ♿ **Accessibility-First UI** – Optimized for screen readers and touch navigation  
+- ☁️ **Optional Google Photos Sync** *(planned)*  
 
 ---
 
-## 🔧 Configuration  
+## 🛠️ Technology & Architecture
 
-### Gemini API Setup  
-1. Get your API key from [Gemini Platform](https://aistudio.google.com)  
-2. Add it to your `.env` file or configure it in the app settings  
-3. The app uses Gemini 3 Flash for cost-effective image analysis  
+Memora is built with a focus on reliability, modularity, and accessibility:
 
----
+### Mobile & Frontend
+- **React Native** (Expo SDK 51)  
+- **TypeScript**  
+- Redux Toolkit + Redux Persist  
+- React Navigation  
 
-## 🤝 Contributing  
+### AI & Multimodal Processing
+- **Google Gemini 3.0** for image understanding and caption generation  
+- OCR pipelines for extracting text from images  
+- Accessibility-focused prompting to avoid generic descriptions  
 
-We welcome contributions! Please feel free to submit issues and enhancement requests.
+### Accessibility & System Design
+- Background image detection using `expo-background-fetch`  
+- EXIF / XMP metadata embedding for persistent accessibility  
+- Native Text-to-Speech and Screen Reader APIs  
+- Local-first storage with explicit user consent for any cloud interaction  
 
-### Development Setup  
-```bash
-# Install dependencies  
-npm install
-
-# Start development server  
-npx expo start
-
-# Run tests (when available)  
-npm test
-```
+This architecture allows each component to be tested independently while ensuring the end-to-end flow remains functional and responsive.
 
 ---
 
----
+## 🚀 How It Works (End-to-End)
 
-## 👨‍💻 Authors  
+1. A new image is captured or added to the device  
+2. Background tasks detect the image automatically  
+3. Gemini 3.0 analyzes visual and textual content  
+4. Alt text and detailed descriptions are generated  
+5. Captions are embedded into image metadata  
+6. Screen readers can immediately read the description  
 
-**ReservedSnow673**  
-- GitHub: [@ReservedSnow673](https://github.com/ReservedSnow673)  
-- Project: [Memora](https://github.com/ReservedSnow673/Memora)
-
-**Pranav435**  
-- GitHub: [@Pranav435](https://github.com/Pranav435)
-
----
-
-## 🙏 Acknowledgments  
-
-- Gemini for providing the Vision API  
-- Expo team for the excellent React Native framework  
-- The accessibility community for guidance and feedback  
-- Beta testers and contributors  
+No manual uploads. No repeated actions.
 
 ---
 
-**Made with ❤️ for accessibility and inclusion**
+## 🌍 Impact
+
+Memora addresses a widespread and meaningful accessibility gap in everyday digital interactions. By making images understandable by default, it supports:
+
+- Inclusive education through accessible diagrams and notes  
+- Independent access to personal memories and shared media  
+- Scalable accessibility across devices and platforms  
+
+The solution is designed to work across age groups — from students in classrooms to older users revisiting lifelong memories — without requiring technical expertise.
+
+---
+
+## 🔮 Future Direction
+
+Planned extensions include:
+- On-device inference for low-connectivity environments  
+- Expanded multilingual support  
+- Accessibility for short videos and educational visuals  
+- Deeper integration with messaging and photo platforms  
+- Collaboration with accessibility organizations and schools  
+
+---
+## 📦 Getting Started
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed or set up:
+
+* **Node.js 18+**
+* **Expo CLI**:
+    ```bash
+    npm install -g @expo/cli
+    ```
+* **Gemini API key**
+* **Android / iOS device** or simulator
+
+### Installation
+
+1.  **Clone the repository and install dependencies:**
+    ```bash
+    git clone [https://github.com/ReservedSnow673/Memora.git](https://github.com/ReservedSnow673/Memora.git)
+    cd "Memora 2.0"
+    npm install
+    cp .env.example .env
+    ```
+
+2.  **Add your API key:**
+    Open the `.env` file and paste your key:
+    ```env
+    GEMINI_API_KEY=your_gemini_api_key_here
+    ```
+
+3.  **Run the app:**
+    ```bash
+    npx expo start
+    ```
+
+---
+
+## 👨‍💻 Team
+
+* **ReservedSnow673** • [GitHub Profile](https://github.com/ReservedSnow673)
+* **Pranav435** • [GitHub Profile](https://github.com/Pranav435)
+
+---
+
+## 🙏 Acknowledgments
+
+* **Google Gemini team** for the Vision API
+* **Expo team** for the React Native framework
+* **The accessibility community** for continuous guidance and feedback
+
+---
+
+> *Built with care for accessibility, inclusion, and real-world impact.*
